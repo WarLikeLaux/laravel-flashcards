@@ -1,8 +1,8 @@
 import { Check, Eye, X } from 'lucide-react';
 import { useState } from 'react';
+import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -19,13 +19,9 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
 
     return (
         <Card>
-            <CardHeader>
-                {flashcard.category && (
-                    <Badge variant="secondary" className="self-start">
-                        {flashcard.category}
-                    </Badge>
-                )}
-                <CardTitle className="text-xl leading-snug">
+            <CardHeader className="gap-2">
+                <CategoryBadge category={flashcard.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
                     {flashcard.question}
                 </CardTitle>
             </CardHeader>
@@ -48,26 +44,28 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
                         className="w-full"
                     >
                         <Eye />
-                        Show answer
+                        Показать ответ
                     </Button>
                 )}
             </CardContent>
             {revealed && (
                 <>
                     <Separator />
-                    <CardFooter className="flex justify-end gap-2">
+                    <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="incorrect"
                             variant="destructive"
-                            label="Wrong"
+                            label="Не знал"
                             icon={<X />}
+                            fullWidthOnMobile
                         />
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="correct"
-                            label="Right"
+                            label="Знал"
                             icon={<Check />}
+                            fullWidthOnMobile
                         />
                     </CardFooter>
                 </>

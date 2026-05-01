@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { PartyPopper, Plus, RotateCcw, Sparkles } from 'lucide-react';
+import { PartyPopper, Plus, RotateCcw } from 'lucide-react';
 import { AssembleMode } from '@/components/study/assemble-mode';
 import { ClozeMode } from '@/components/study/cloze-mode';
 import { MatchingMode } from '@/components/study/matching-mode';
@@ -15,6 +15,8 @@ import {
     CardDescription,
     CardTitle,
 } from '@/components/ui/card';
+import { studyModeMeta } from '@/lib/study-modes';
+import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import type {
     Flashcard,
@@ -34,16 +36,6 @@ type Props = {
     assemble: StudyAssemble | null;
     matching: StudyMatching | null;
     stats: FlashcardStats;
-};
-
-const modeLabels: Record<StudyMode, string> = {
-    reveal: 'Reveal',
-    true_false: 'True / False',
-    multiple_choice: 'Multiple choice',
-    cloze: 'Cloze',
-    type_in: 'Type-in',
-    assemble: 'Assemble',
-    matching: 'Matching',
 };
 
 export default function StudyIndex({
@@ -118,25 +110,64 @@ function Wrapper({
     flashcard?: Flashcard;
     children: React.ReactNode;
 }) {
+    const meta = studyModeMeta[mode];
+    const Icon = meta.icon;
+
     return (
         <>
-            <Head title="Study" />
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
-                <header className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-                    <Badge variant="outline" className="gap-1">
-                        <Sparkles className="size-3" />
-                        {modeLabels[mode]}
-                    </Badge>
-                    <span>
-                        {stats.due} due · {stats.learned}/{stats.total} learned
-                    </span>
-                    {flashcard && (
-                        <span>
-                            progress {flashcard.correct_streak}/
-                            {flashcard.required_correct}
-                        </span>
+            <Head title="Изучение" />
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-6 sm:px-6 sm:pt-6">
+                <div
+                    className={cn(
+                        'flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4',
+                        meta.accentBg,
+                        meta.accentBorder,
                     )}
-                </header>
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className={cn(
+                                'flex size-9 shrink-0 items-center justify-center rounded-xl bg-background/80 ring-1',
+                                meta.accentRing,
+                                meta.accentText,
+                            )}
+                        >
+                            <Icon className="size-5" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm leading-tight font-semibold">
+                                {meta.label}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                                {meta.description}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground sm:justify-end">
+                        <Badge
+                            variant="outline"
+                            className="bg-background/60 tabular-nums"
+                        >
+                            {stats.due} к повтору
+                        </Badge>
+                        <Badge
+                            variant="outline"
+                            className="bg-background/60 tabular-nums"
+                        >
+                            {stats.learned}/{stats.total} выучено
+                        </Badge>
+                        {flashcard && (
+                            <Badge
+                                variant="outline"
+                                className="bg-background/60 font-mono tabular-nums"
+                            >
+                                {flashcard.correct_streak}/
+                                {flashcard.required_correct}
+                            </Badge>
+                        )}
+                    </div>
+                </div>
                 {children}
             </div>
         </>
@@ -146,43 +177,43 @@ function Wrapper({
 function EmptyState({ stats }: { stats: FlashcardStats }) {
     return (
         <>
-            <Head title="Study" />
-            <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 p-6">
+            <Head title="Изучение" />
+            <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 pt-12 pb-6 sm:px-6">
                 <Card className="w-full">
                     <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
                         {stats.total === 0 ? (
                             <>
-                                <CardTitle>Nothing to study yet</CardTitle>
+                                <CardTitle>Пока нечего учить</CardTitle>
                                 <CardDescription>
-                                    Add your first flashcard to begin.
+                                    Добавь первую карточку, чтобы начать.
                                 </CardDescription>
                                 <Button asChild>
                                     <Link href={flashcards.create().url}>
                                         <Plus />
-                                        Add card
+                                        Добавить карточку
                                     </Link>
                                 </Button>
                             </>
                         ) : (
                             <>
                                 <PartyPopper className="size-10 text-primary" />
-                                <CardTitle>All cards learned</CardTitle>
+                                <CardTitle>Все карточки выучены</CardTitle>
                                 <CardDescription>
-                                    Reset progress to repeat the deck.
+                                    Сбрось прогресс, чтобы пройти колоду заново.
                                 </CardDescription>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap justify-center gap-2">
                                     <Form
                                         action={flashcards.reset().url}
                                         method="post"
                                     >
                                         <Button type="submit">
                                             <RotateCcw />
-                                            Reset progress
+                                            Сбросить прогресс
                                         </Button>
                                     </Form>
                                     <Button asChild variant="outline">
                                         <Link href={flashcards.index().url}>
-                                            Back to cards
+                                            К карточкам
                                         </Link>
                                     </Button>
                                 </div>

@@ -1,8 +1,8 @@
 import { Check, X } from 'lucide-react';
 import { useState } from 'react';
+import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -32,21 +32,17 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
 
     return (
         <Card>
-            <CardHeader>
-                {flashcard.category && (
-                    <Badge variant="secondary" className="self-start">
-                        {flashcard.category}
-                    </Badge>
-                )}
-                <CardTitle className="text-xl leading-snug">
+            <CardHeader className="gap-2">
+                <CategoryBadge category={flashcard.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
                     {flashcard.question}
                 </CardTitle>
-                <CardDescription>Is this answer correct?</CardDescription>
+                <CardDescription>Этот ответ верный?</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <p
                     className={cn(
-                        'rounded-md border p-4 text-base whitespace-pre-line',
+                        'rounded-md border p-4 text-base whitespace-pre-line transition-colors',
                         verdict !== null &&
                             (shown.is_correct
                                 ? 'border-emerald-500/40 bg-emerald-500/5'
@@ -57,11 +53,11 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                 </p>
 
                 {verdict !== null && (
-                    <>
-                        <p className="text-sm">
+                    <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
+                        <p className="font-medium">
                             {shown.is_correct
-                                ? 'This is the correct answer.'
-                                : 'This was a distractor. Real answer:'}
+                                ? 'Это правильный ответ.'
+                                : 'Это был дистрактор. Правильный ответ:'}
                         </p>
                         {!shown.is_correct && (
                             <p className="text-base whitespace-pre-line">
@@ -72,27 +68,29 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                             code={flashcard.code_example}
                             language={flashcard.code_language}
                         />
-                    </>
+                    </div>
                 )}
             </CardContent>
             <Separator />
-            <CardFooter className="flex justify-end gap-2">
+            <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
                 {verdict === null ? (
                     <>
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setVerdict('false')}
+                            className="w-full sm:w-auto"
                         >
                             <X />
-                            False
+                            Ложь
                         </Button>
                         <Button
                             type="button"
                             onClick={() => setVerdict('true')}
+                            className="w-full sm:w-auto"
                         >
                             <Check />
-                            True
+                            Правда
                         </Button>
                     </>
                 ) : (
@@ -102,14 +100,15 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                             result={userResult}
                             label={
                                 userResult === 'correct'
-                                    ? 'Got it · Next'
-                                    : 'Got it wrong · Next'
+                                    ? 'Верно · Дальше'
+                                    : 'Ошибка · Дальше'
                             }
                             variant={
                                 userResult === 'correct'
                                     ? 'default'
                                     : 'destructive'
                             }
+                            fullWidthOnMobile
                         />
                     )
                 )}

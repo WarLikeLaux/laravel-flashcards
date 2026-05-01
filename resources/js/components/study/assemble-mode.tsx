@@ -1,8 +1,8 @@
-import { Check, RotateCcw, X } from 'lucide-react';
+import { Check, RotateCcw, Undo2, X } from 'lucide-react';
 import { useState } from 'react';
+import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -37,23 +37,19 @@ export function AssembleMode({ flashcard, assemble }: Props) {
 
     return (
         <Card>
-            <CardHeader>
-                {flashcard.category && (
-                    <Badge variant="secondary" className="self-start">
-                        {flashcard.category}
-                    </Badge>
-                )}
-                <CardTitle className="text-xl leading-snug">
+            <CardHeader className="gap-2">
+                <CategoryBadge category={flashcard.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
                     {flashcard.question}
                 </CardTitle>
                 <CardDescription>
-                    Tap chunks in the right order.
+                    Нажимай на блоки в правильном порядке.
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <div
                     className={cn(
-                        'min-h-12 rounded-md border bg-muted/30 p-3 font-mono text-sm',
+                        'min-h-14 rounded-md border bg-muted/30 p-3 font-mono text-sm transition-colors',
                         checked &&
                             isCorrect &&
                             'border-emerald-500/60 bg-emerald-500/5',
@@ -64,7 +60,7 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                 >
                     {assembled.length === 0 ? (
                         <span className="text-muted-foreground">
-                            Pick chunks below…
+                            Выбери блоки ниже…
                         </span>
                     ) : (
                         <span className="break-all">{assembled.join('')}</span>
@@ -97,7 +93,8 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                                 setPicked(picked.slice(0, picked.length - 1))
                             }
                         >
-                            Undo
+                            <Undo2 />
+                            Отменить
                         </Button>
                         <Button
                             type="button"
@@ -106,7 +103,7 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                             onClick={() => setPicked([])}
                         >
                             <RotateCcw />
-                            Reset
+                            Сбросить
                         </Button>
                     </div>
                 )}
@@ -115,7 +112,7 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                     <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
                         {!isCorrect && (
                             <>
-                                <p>Expected:</p>
+                                <p>Правильный порядок:</p>
                                 <code className="block rounded bg-muted px-2 py-1 font-mono break-all">
                                     {correct.join('')}
                                 </code>
@@ -138,16 +135,18 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                         type="button"
                         onClick={() => setChecked(true)}
                         disabled={picked.length === 0}
+                        className="w-full sm:w-auto"
                     >
-                        Check
+                        Проверить
                     </Button>
                 ) : (
                     <AnswerForm
                         flashcardId={flashcard.id}
                         result={isCorrect ? 'correct' : 'incorrect'}
-                        label={isCorrect ? 'Correct · Next' : 'Wrong · Next'}
+                        label={isCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'}
                         variant={isCorrect ? 'default' : 'destructive'}
                         icon={isCorrect ? <Check /> : <X />}
+                        fullWidthOnMobile
                     />
                 )}
             </CardFooter>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
+import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
-import { Badge } from '@/components/ui/badge';
 import {
     Card,
     CardContent,
@@ -31,16 +31,12 @@ export function MultipleChoiceMode({ flashcard, options }: Props) {
 
     return (
         <Card>
-            <CardHeader>
-                {flashcard.category && (
-                    <Badge variant="secondary" className="self-start">
-                        {flashcard.category}
-                    </Badge>
-                )}
-                <CardTitle className="text-xl leading-snug">
+            <CardHeader className="gap-2">
+                <CategoryBadge category={flashcard.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
                     {flashcard.question}
                 </CardTitle>
-                <CardDescription>Pick the correct answer.</CardDescription>
+                <CardDescription>Выбери правильный ответ.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
                 {options.map((option) => {
@@ -54,16 +50,16 @@ export function MultipleChoiceMode({ flashcard, options }: Props) {
                             disabled={showState}
                             onClick={() => setSelectedId(option.id)}
                             className={cn(
-                                'rounded-md border p-3 text-left text-sm whitespace-pre-line transition-colors',
-                                'hover:border-ring',
-                                'disabled:cursor-default disabled:hover:border-input',
+                                'rounded-lg border p-3 text-left text-sm whitespace-pre-line transition-colors',
+                                'hover:border-ring hover:bg-accent/50',
+                                'disabled:cursor-default disabled:hover:border-input disabled:hover:bg-transparent',
                                 showState &&
                                     option.is_correct &&
-                                    'border-emerald-500/60 bg-emerald-500/5',
+                                    'border-emerald-500/60 bg-emerald-500/10',
                                 showState &&
                                     picked &&
                                     !option.is_correct &&
-                                    'border-destructive/60 bg-destructive/5',
+                                    'border-destructive/60 bg-destructive/10',
                             )}
                         >
                             {option.answer}
@@ -89,14 +85,15 @@ export function MultipleChoiceMode({ flashcard, options }: Props) {
                             result={userResult}
                             label={
                                 userResult === 'correct'
-                                    ? 'Correct · Next'
-                                    : 'Wrong · Next'
+                                    ? 'Верно · Дальше'
+                                    : 'Ошибка · Дальше'
                             }
                             variant={
                                 userResult === 'correct'
                                     ? 'default'
                                     : 'destructive'
                             }
+                            fullWidthOnMobile
                         />
                     </CardFooter>
                 </>

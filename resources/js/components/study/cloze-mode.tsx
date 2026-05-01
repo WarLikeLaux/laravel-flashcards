@@ -1,8 +1,8 @@
 import { Check, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -78,19 +78,15 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
 
     return (
         <Card>
-            <CardHeader>
-                {flashcard.category && (
-                    <Badge variant="secondary" className="self-start">
-                        {flashcard.category}
-                    </Badge>
-                )}
-                <CardTitle className="text-xl leading-snug">
+            <CardHeader className="gap-2">
+                <CategoryBadge category={flashcard.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
                     {flashcard.question}
                 </CardTitle>
-                <CardDescription>Fill the blanks.</CardDescription>
+                <CardDescription>Заполни пропуски.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm leading-relaxed">
+                <div className="overflow-x-auto rounded-md border bg-muted/30 p-4 font-mono text-sm leading-relaxed">
                     {segments.map((seg, i) => {
                         if (seg.kind === 'text') {
                             return (
@@ -116,7 +112,7 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
                                 spellCheck={false}
                                 autoComplete="off"
                                 className={cn(
-                                    'mx-1 inline-block h-7 w-40 px-2 align-baseline font-mono',
+                                    'mx-1 inline-block h-7 w-32 px-2 align-baseline font-mono sm:w-40',
                                     ok &&
                                         'border-emerald-500/60 bg-emerald-500/5',
                                     wrong &&
@@ -129,7 +125,7 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
 
                 {checked && (
                     <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
-                        <p className="font-medium">Expected values:</p>
+                        <p className="font-medium">Ожидалось:</p>
                         <ol className="list-decimal pl-5 font-mono">
                             {blanks.map((b, i) => (
                                 <li
@@ -161,16 +157,20 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
                         type="button"
                         onClick={() => setChecked(true)}
                         disabled={values.some((v) => v.trim() === '')}
+                        className="w-full sm:w-auto"
                     >
-                        Check
+                        Проверить
                     </Button>
                 ) : (
                     <AnswerForm
                         flashcardId={flashcard.id}
                         result={allCorrect ? 'correct' : 'incorrect'}
-                        label={allCorrect ? 'Correct · Next' : 'Wrong · Next'}
+                        label={
+                            allCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'
+                        }
                         variant={allCorrect ? 'default' : 'destructive'}
                         icon={allCorrect ? <Check /> : <X />}
+                        fullWidthOnMobile
                     />
                 )}
             </CardFooter>

@@ -1,7 +1,7 @@
 import { Form } from '@inertiajs/react';
 import { Check, X } from 'lucide-react';
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { CategoryBadge } from '@/components/category-badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -73,18 +73,16 @@ export function MatchingMode({ matching }: { matching: StudyMatching }) {
 
     return (
         <Card>
-            <CardHeader>
-                <Badge variant="secondary" className="self-start">
-                    {matching.category}
-                </Badge>
-                <CardTitle className="text-xl leading-snug">
-                    Match each term with its short answer
+            <CardHeader className="gap-2">
+                <CategoryBadge category={matching.category} />
+                <CardTitle className="text-lg leading-snug sm:text-xl">
+                    Сопоставь термины с короткими ответами
                 </CardTitle>
                 <CardDescription>
-                    Tap a question on the left, then its match on the right.
+                    Нажми вопрос слева, потом подходящий ответ справа.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                 <div className="flex flex-col gap-2">
                     {matching.questions.map((q) => {
                         const matched = q.id in pairs;
@@ -99,14 +97,15 @@ export function MatchingMode({ matching }: { matching: StudyMatching }) {
                                 disabled={checked}
                                 onClick={() => togglePickQuestion(q.id)}
                                 className={cn(
-                                    'rounded-md border p-3 text-left text-sm transition-colors',
-                                    'disabled:cursor-default',
+                                    'rounded-lg border p-3 text-left text-sm transition-colors',
+                                    'hover:border-ring hover:bg-accent/40',
+                                    'disabled:cursor-default disabled:hover:border-input disabled:hover:bg-transparent',
                                     active && 'border-ring bg-accent',
                                     matched && !active && 'opacity-70',
                                     correct &&
-                                        'border-emerald-500/60 bg-emerald-500/5 opacity-100',
+                                        'border-emerald-500/60 bg-emerald-500/10 opacity-100',
                                     wrong &&
-                                        'border-destructive/60 bg-destructive/5 opacity-100',
+                                        'border-destructive/60 bg-destructive/10 opacity-100',
                                 )}
                             >
                                 {q.text}
@@ -139,13 +138,14 @@ export function MatchingMode({ matching }: { matching: StudyMatching }) {
                                 }
                                 onClick={() => onClickAnswer(a.id)}
                                 className={cn(
-                                    'rounded-md border p-3 text-left font-mono text-sm transition-colors',
-                                    'disabled:cursor-default',
+                                    'rounded-lg border p-3 text-left font-mono text-sm transition-colors',
+                                    'hover:border-ring hover:bg-accent/40',
+                                    'disabled:cursor-default disabled:hover:border-input disabled:hover:bg-transparent',
                                     taken && 'opacity-70',
                                     correct &&
-                                        'border-emerald-500/60 bg-emerald-500/5 opacity-100',
+                                        'border-emerald-500/60 bg-emerald-500/10 opacity-100',
                                     wrong &&
-                                        'border-destructive/60 bg-destructive/5 opacity-100',
+                                        'border-destructive/60 bg-destructive/10 opacity-100',
                                 )}
                             >
                                 {a.text}
@@ -155,22 +155,27 @@ export function MatchingMode({ matching }: { matching: StudyMatching }) {
                 </div>
             </CardContent>
             <Separator />
-            <CardFooter className="flex items-center justify-between">
+            <CardFooter className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm text-muted-foreground">
                     {checked
-                        ? `${correctCount}/${matching.questions.length} correct`
-                        : `${Object.keys(pairs).length}/${matching.questions.length} matched`}
+                        ? `Верно: ${correctCount}/${matching.questions.length}`
+                        : `Сопоставлено: ${Object.keys(pairs).length}/${matching.questions.length}`}
                 </span>
                 {!checked ? (
                     <Button
                         type="button"
                         onClick={() => setChecked(true)}
                         disabled={!allMatched}
+                        className="w-full sm:w-auto"
                     >
-                        Check
+                        Проверить
                     </Button>
                 ) : (
-                    <Form action={study.matching().url} method="post">
+                    <Form
+                        action={study.matching().url}
+                        method="post"
+                        className="w-full sm:w-auto"
+                    >
                         {Object.entries(pairs).map(([qId, aId]) => (
                             <span key={qId}>
                                 <input
@@ -192,13 +197,14 @@ export function MatchingMode({ matching }: { matching: StudyMatching }) {
                                     ? 'default'
                                     : 'destructive'
                             }
+                            className="w-full sm:w-auto"
                         >
                             {correctCount === matching.questions.length ? (
                                 <Check />
                             ) : (
                                 <X />
                             )}
-                            Continue
+                            Дальше
                         </Button>
                     </Form>
                 )}
