@@ -4,7 +4,11 @@ namespace Database\Seeders;
 
 use App\Models\Flashcard;
 use Database\Seeders\Data\AdvancedQuestions;
-use Database\Seeders\Data\InterviewQuestions;
+use Database\Seeders\Data\Categories\DatabaseQuestions;
+use Database\Seeders\Data\Categories\LaravelQuestions;
+use Database\Seeders\Data\Categories\OopQuestions;
+use Database\Seeders\Data\Categories\PhpQuestions;
+use Database\Seeders\Data\Categories\SystemDesignQuestions;
 use Illuminate\Database\Seeder;
 
 class FlashcardSeeder extends Seeder
@@ -13,7 +17,11 @@ class FlashcardSeeder extends Seeder
     {
         $cards = [
             ...$this->cards(),
-            ...InterviewQuestions::all(),
+            ...PhpQuestions::all(),
+            ...OopQuestions::all(),
+            ...LaravelQuestions::all(),
+            ...DatabaseQuestions::all(),
+            ...SystemDesignQuestions::all(),
             ...AdvancedQuestions::all(),
         ];
 
@@ -36,7 +44,7 @@ class FlashcardSeeder extends Seeder
             [
                 'category' => 'PHP',
                 'question' => 'Что такое late static binding и как работает static::?',
-                'answer' => 'Late static binding позволяет ссылаться на вызываемый класс в иерархии наследования. self:: указывает на класс, где определён метод; static:: — на класс, через который метод вызвали.',
+                'answer' => 'Late static binding позволяет ссылаться на вызываемый класс в иерархии наследования. self:: указывает на класс, где определён метод; static:: - на класс, через который метод вызвали.',
             ],
             [
                 'category' => 'PHP',
@@ -46,7 +54,7 @@ class FlashcardSeeder extends Seeder
             [
                 'category' => 'PHP',
                 'question' => 'Что такое generator и yield?',
-                'answer' => 'Generator — функция, возвращающая Iterator через yield, не материализуя весь массив в памяти. Подходит для ленивых последовательностей и потоковой обработки.',
+                'answer' => 'Generator - функция, возвращающая Iterator через yield, не материализуя весь массив в памяти. Подходит для ленивых последовательностей и потоковой обработки.',
             ],
             [
                 'category' => 'PHP',
@@ -56,22 +64,22 @@ class FlashcardSeeder extends Seeder
             [
                 'category' => 'PHP',
                 'question' => 'Что такое traits и для чего они нужны?',
-                'answer' => 'Traits — механизм горизонтального переиспользования кода. Решают ограничение единичного наследования, позволяя подмешивать методы и свойства в классы.',
+                'answer' => 'Traits - механизм горизонтального переиспользования кода. Решают ограничение единичного наследования, позволяя подмешивать методы и свойства в классы.',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Как работает spl_autoload_register и PSR-4?',
-                'answer' => 'spl_autoload_register регистрирует функцию автозагрузки классов. PSR-4 — стандарт маппинга namespace на пути файлов, реализуемый Composer-ом автоматически.',
+                'answer' => 'spl_autoload_register регистрирует функцию автозагрузки классов. PSR-4 - стандарт маппинга namespace на пути файлов, реализуемый Composer-ом автоматически.',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Что такое match-выражение и чем оно отличается от switch?',
-                'answer' => 'match — выражение со строгим сравнением (===), без fallthrough, возвращает значение, требует исчерпывающих веток или выбрасывает UnhandledMatchError.',
+                'answer' => 'match - выражение со строгим сравнением (===), без fallthrough, возвращает значение, требует исчерпывающих веток или выбрасывает UnhandledMatchError.',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Что такое enum в PHP 8.1+?',
-                'answer' => 'Перечисление — фиксированный набор именованных значений. Backed enum имеет скалярный тип (string|int) и методы from/tryFrom для конвертации из значений.',
+                'answer' => 'Перечисление - фиксированный набор именованных значений. Backed enum имеет скалярный тип (string|int) и методы from/tryFrom для конвертации из значений.',
             ],
             [
                 'category' => 'PHP',
@@ -79,22 +87,22 @@ class FlashcardSeeder extends Seeder
                 'answer' => 'Сокращение цепочки вызовов: если левая часть null, цепочка возвращает null без NullPointerException. $a?->b()?->c.',
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Перечислите принципы SOLID.',
                 'answer' => 'Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion.',
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Чем абстрактный класс отличается от интерфейса?',
-                'answer' => 'Абстрактный класс может содержать реализацию и состояние, поддерживает единичное наследование. Интерфейс — только контракт без состояния, поддерживает множественную реализацию.',
+                'answer' => 'Абстрактный класс может содержать реализацию и состояние, поддерживает единичное наследование. Интерфейс - только контракт без состояния, поддерживает множественную реализацию.',
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Что такое Dependency Injection?',
                 'answer' => 'Передача зависимостей объекту извне (через конструктор, сеттер, метод) вместо создания их внутри. Упрощает тестирование и снижает связанность.',
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Чем композиция лучше наследования?',
                 'answer' => 'Композиция гибче: поведение собирается из независимых объектов в рантайме, нет жёсткой иерархии, проще менять и тестировать. Принцип "favor composition over inheritance".',
             ],
@@ -111,42 +119,42 @@ class FlashcardSeeder extends Seeder
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Eloquent ORM и Active Record?',
-                'answer' => 'Eloquent — реализация паттерна Active Record: одна модель = одна таблица, экземпляр модели = строка, методы модели инкапсулируют CRUD и связи.',
+                'answer' => 'Eloquent - реализация паттерна Active Record: одна модель = одна таблица, экземпляр модели = строка, методы модели инкапсулируют CRUD и связи.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Чем hasOne отличается от belongsTo?',
-                'answer' => 'hasOne — обратная сторона связи "один-к-одному" со стороны родителя (FK на дочерней). belongsTo — со стороны дочерней (FK у себя).',
+                'answer' => 'hasOne - обратная сторона связи "один-к-одному" со стороны родителя (FK на дочерней). belongsTo - со стороны дочерней (FK у себя).',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое N+1 проблема и как её решать в Eloquent?',
-                'answer' => 'N+1 — N дополнительных запросов на связанные записи при итерации. Решается eager loading через with(), withCount() или предзагрузкой через load().',
+                'answer' => 'N+1 - N дополнительных запросов на связанные записи при итерации. Решается eager loading через with(), withCount() или предзагрузкой через load().',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Чем отличаются queue jobs от events?',
-                'answer' => 'Job — единица фоновой работы, ставится в очередь и выполняется воркером. Event — синхронное или асинхронное уведомление с N подписчиками-листенерами.',
+                'answer' => 'Job - единица фоновой работы, ставится в очередь и выполняется воркером. Event - синхронное или асинхронное уведомление с N подписчиками-листенерами.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Что делает middleware throttle?',
-                'answer' => 'Ограничивает число запросов с одного клиента за период (rate limiting), используя кэш для счётчиков. Например, throttle:60,1 — 60 запросов в минуту.',
+                'answer' => 'Ограничивает число запросов с одного клиента за период (rate limiting), используя кэш для счётчиков. Например, throttle:60,1 - 60 запросов в минуту.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Чем отличается Request от FormRequest?',
-                'answer' => 'FormRequest — наследник Request с валидацией и авторизацией в отдельном классе. Валидация запускается до контроллера, ошибки автоматически возвращаются.',
+                'answer' => 'FormRequest - наследник Request с валидацией и авторизацией в отдельном классе. Валидация запускается до контроллера, ошибки автоматически возвращаются.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Route Model Binding?',
-                'answer' => 'Автоматический резолв модели по параметру роута. Implicit — по типу аргумента и имени параметра, explicit — через Route::model или Route::bind.',
+                'answer' => 'Автоматический резолв модели по параметру роута. Implicit - по типу аргумента и имени параметра, explicit - через Route::model или Route::bind.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Policy и Gate?',
-                'answer' => 'Gate — замыкание для проверки права действия. Policy — класс, группирующий правила доступа для конкретной модели. Используются через can()/authorize().',
+                'answer' => 'Gate - замыкание для проверки права действия. Policy - класс, группирующий правила доступа для конкретной модели. Используются через can()/authorize().',
             ],
             [
                 'category' => 'Laravel',
@@ -171,37 +179,37 @@ class FlashcardSeeder extends Seeder
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое database transaction и как использовать в Laravel?',
-                'answer' => 'Атомарная группа SQL-операций, либо все коммитятся, либо все откатываются. В Laravel — DB::transaction(closure) или явные beginTransaction/commit/rollBack.',
+                'answer' => 'Атомарная группа SQL-операций, либо все коммитятся, либо все откатываются. В Laravel - DB::transaction(closure) или явные beginTransaction/commit/rollBack.',
             ],
             [
                 'category' => 'Laravel',
                 'question' => 'Чем отличаются session, cookie и cache в Laravel?',
-                'answer' => 'Cookie — данные у клиента. Session — серверное состояние пользователя, обычно идентифицируется cookie. Cache — общее key-value-хранилище без привязки к пользователю.',
+                'answer' => 'Cookie - данные у клиента. Session - серверное состояние пользователя, обычно идентифицируется cookie. Cache - общее key-value-хранилище без привязки к пользователю.',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Что такое индекс и когда он не помогает?',
                 'answer' => 'Структура для ускорения поиска по столбцам. Не помогает на маленьких таблицах, при низкой селективности, при функциях/преобразованиях столбца, при LIKE %x%.',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Чем отличается INNER JOIN от LEFT JOIN?',
                 'answer' => 'INNER возвращает только пары, удовлетворяющие условию. LEFT возвращает все строки слева плюс совпадения справа, отсутствующие справа заполняются NULL.',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Что такое ACID?',
                 'answer' => 'Свойства транзакций: Atomicity (атомарность), Consistency (согласованность), Isolation (изолированность), Durability (устойчивость).',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Что такое нормальные формы и зачем нормализация?',
-                'answer' => 'Правила декомпозиции таблиц для устранения избыточности и аномалий. 1НФ — атомарность, 2НФ — зависимость от полного ключа, 3НФ — отсутствие транзитивных зависимостей.',
+                'answer' => 'Правила декомпозиции таблиц для устранения избыточности и аномалий. 1НФ - атомарность, 2НФ - зависимость от полного ключа, 3НФ - отсутствие транзитивных зависимостей.',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Чем отличается WHERE от HAVING?',
-                'answer' => 'WHERE фильтрует строки до агрегации, HAVING — группы после агрегации. В HAVING можно использовать агрегатные функции, в WHERE — нет.',
+                'answer' => 'WHERE фильтрует строки до агрегации, HAVING - группы после агрегации. В HAVING можно использовать агрегатные функции, в WHERE - нет.',
             ],
         ];
     }

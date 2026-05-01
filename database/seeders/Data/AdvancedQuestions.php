@@ -61,9 +61,9 @@ class AdvancedQuestions
 }',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Заполни SQL для топ-10 пользователей по количеству заказов.',
-                'answer' => 'GROUP BY с COUNT и сортировкой DESC, LIMIT — стандартная конструкция top-N.',
+                'answer' => 'GROUP BY с COUNT и сортировкой DESC, LIMIT - стандартная конструкция top-N.',
                 'cloze_text' => 'SELECT u.id, COUNT(o.id) AS orders
 FROM users u
 {{LEFT JOIN}} orders o ON o.user_id = u.id
@@ -73,7 +73,7 @@ LIMIT 10;',
                 'code_language' => 'sql',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Заполни оконную функцию для нумерации заказов внутри пользователя по дате.',
                 'answer' => 'ROW_NUMBER() с PARTITION BY раскладывает строки по группам и нумерует внутри каждой согласно ORDER BY.',
                 'cloze_text' => 'SELECT id, user_id,
@@ -106,7 +106,7 @@ FROM orders;',
             [
                 'category' => 'Laravel',
                 'question' => 'Заполни scope для активных пользователей и его использование.',
-                'answer' => 'Локальный scope — метод scopeXxx, доступный без префикса через query builder.',
+                'answer' => 'Локальный scope - метод scopeXxx, доступный без префикса через query builder.',
                 'cloze_text' => 'public function {{scopeActive}}(Builder $q): Builder {
     return $q->where("active", {{true}});
 }
@@ -114,7 +114,7 @@ FROM orders;',
 User::{{active}}()->get();',
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Заполни декларацию интерфейса и реализации для команды.',
                 'answer' => 'interface вводит контракт, implements обязывает класс реализовать все методы.',
                 'cloze_text' => '{{interface}} Command {
@@ -149,7 +149,7 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'PHP',
                 'question' => 'Функция PHP для разбиения строки на массив по разделителю.',
-                'answer' => 'explode($delimiter, $string, $limit = PHP_INT_MAX) — обратная к implode/join.',
+                'answer' => 'explode($delimiter, $string, $limit = PHP_INT_MAX) - обратная к implode/join.',
                 'short_answer' => 'explode',
                 'code_example' => '$parts = explode(",", "a,b,c"); // ["a","b","c"]',
                 'code_language' => 'php',
@@ -157,31 +157,31 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'PHP',
                 'question' => 'Функция, склеивающая массив строк в одну строку.',
-                'answer' => 'implode($glue, $array). Алиас — join.',
+                'answer' => 'implode($glue, $array). Алиас - join.',
                 'short_answer' => 'implode',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Функция, возвращающая количество элементов массива.',
-                'answer' => 'count($array, $mode = COUNT_NORMAL). Алиас — sizeof.',
+                'answer' => 'count($array, $mode = COUNT_NORMAL). Алиас - sizeof.',
                 'short_answer' => 'count',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Функция для проверки существования ключа в массиве (не путать с isset).',
-                'answer' => 'array_key_exists возвращает true даже если значение под ключом — null, в отличие от isset.',
+                'answer' => 'array_key_exists возвращает true даже если значение под ключом - null, в отличие от isset.',
                 'short_answer' => 'array_key_exists',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'Функция для сортировки ассоциативного массива по значениям с сохранением ключей.',
-                'answer' => 'asort сортирует по значению по возрастанию и сохраняет ассоциативные ключи. arsort — то же по убыванию.',
+                'answer' => 'asort сортирует по значению по возрастанию и сохраняет ассоциативные ключи. arsort - то же по убыванию.',
                 'short_answer' => 'asort',
             ],
             [
                 'category' => 'PHP',
                 'question' => 'SPL-класс для очереди FIFO с push/pop в обоих концах.',
-                'answer' => 'SplDoublyLinkedList — основа для SplQueue (FIFO) и SplStack (LIFO).',
+                'answer' => 'SplDoublyLinkedList - основа для SplQueue (FIFO) и SplStack (LIFO).',
                 'short_answer' => 'SplDoublyLinkedList',
             ],
             [
@@ -205,7 +205,7 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'Laravel',
                 'question' => 'Хелпер, который возвращает singleton-экземпляр приложения.',
-                'answer' => 'app() без аргументов вернёт Illuminate\\Foundation\\Application; с аргументом — резолвит зависимость из контейнера.',
+                'answer' => 'app() без аргументов вернёт Illuminate\\Foundation\\Application; с аргументом - резолвит зависимость из контейнера.',
                 'short_answer' => 'app',
             ],
             [
@@ -221,21 +221,21 @@ class SendEmail {{implements}} Command {
                 'short_answer' => 'event',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'SQL-команда, объединяющая результаты двух запросов без дубликатов.',
-                'answer' => 'UNION удаляет дубликаты, UNION ALL — оставляет.',
+                'answer' => 'UNION удаляет дубликаты, UNION ALL - оставляет.',
                 'short_answer' => 'UNION',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'SQL-конструкция для условного выражения, аналог if/then.',
-                'answer' => 'CASE WHEN ... THEN ... ELSE ... END — стандартное портируемое выражение.',
+                'answer' => 'CASE WHEN ... THEN ... ELSE ... END - стандартное портируемое выражение.',
                 'short_answer' => 'CASE',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Уровень изоляции, при котором допустимы non-repeatable reads и phantom reads.',
-                'answer' => 'READ COMMITTED — компромиссный уровень по умолчанию во многих БД (Postgres, Oracle).',
+                'answer' => 'READ COMMITTED - компромиссный уровень по умолчанию во многих БД (Postgres, Oracle).',
                 'short_answer' => 'READ COMMITTED',
             ],
         ];
@@ -281,7 +281,7 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'Laravel',
                 'question' => 'Собери диспатч джобы в очередь high с задержкой 30 секунд.',
-                'answer' => 'onQueue выбирает очередь, delay — отложенный запуск.',
+                'answer' => 'onQueue выбирает очередь, delay - отложенный запуск.',
                 'assemble_chunks' => [
                     'ProcessOrder::',
                     'dispatch($order)',
@@ -305,7 +305,7 @@ class SendEmail {{implements}} Command {
                 ],
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Собери SQL: 5 самых дорогих заказов с email клиента.',
                 'answer' => 'JOIN по внешнему ключу + ORDER BY DESC + LIMIT.',
                 'assemble_chunks' => [
@@ -319,7 +319,7 @@ class SendEmail {{implements}} Command {
                 'code_language' => 'sql',
             ],
             [
-                'category' => 'Database',
+                'category' => 'Базы данных',
                 'question' => 'Собери UPDATE с подзапросом на максимум.',
                 'answer' => 'Можно использовать коррелированный подзапрос или CTE для денормализованного поля.',
                 'assemble_chunks' => [
@@ -333,7 +333,7 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'PHP',
                 'question' => 'Собери цепочку Collection: уникальные emails из активных юзеров.',
-                'answer' => 'Coллекции — fluent. filter, pluck, unique, values образуют ленивую цепочку (на eager при collect).',
+                'answer' => 'Coллекции - fluent. filter, pluck, unique, values образуют ленивую цепочку (на eager при collect).',
                 'assemble_chunks' => [
                     'collect($users)',
                     '->',
@@ -351,7 +351,7 @@ class SendEmail {{implements}} Command {
             [
                 'category' => 'PHP',
                 'question' => 'Собери try/catch для нескольких типов исключений.',
-                'answer' => 'Multi-catch (PHP 8.0): TypeA|TypeB $e — общий блок для нескольких типов.',
+                'answer' => 'Multi-catch (PHP 8.0): TypeA|TypeB $e - общий блок для нескольких типов.',
                 'assemble_chunks' => [
                     'try {',
                     '    $client->send($request);',
@@ -365,7 +365,7 @@ class SendEmail {{implements}} Command {
                 ],
             ],
             [
-                'category' => 'OOP',
+                'category' => 'ООП',
                 'question' => 'Собери класс с конструктором и приватным свойством.',
                 'answer' => 'Constructor property promotion (PHP 8) объявляет и инициализирует свойство одной строкой.',
                 'assemble_chunks' => [
