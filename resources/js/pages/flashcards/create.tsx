@@ -1,5 +1,6 @@
-import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, Code2, PencilLine, Puzzle, Spline } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -10,15 +11,69 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { knownCategories } from '@/lib/category-colors';
+import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 
+type FormData = {
+    category: string;
+    question: string;
+    answer: string;
+    code_example: string;
+    code_language: string;
+    cloze_text: string;
+    short_answer: string;
+    assemble_chunks_text: string;
+    [key: string]: string;
+};
+
 export default function FlashcardCreate() {
+    const form = useForm<FormData>({
+        category: '',
+        question: '',
+        answer: '',
+        code_example: '',
+        code_language: 'php',
+        cloze_text: '',
+        short_answer: '',
+        assemble_chunks_text: '',
+    });
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        form.transform((data) => {
+            const chunks = data.assemble_chunks_text
+                .split('\n')
+                .map((s) => s.replace(/\s+$/u, ''))
+                .filter((s) => s.length > 0);
+            const payload: Record<string, unknown> = {
+                category: data.category || null,
+                question: data.question,
+                answer: data.answer,
+                code_example: data.code_example || null,
+                code_language: data.code_example
+                    ? data.code_language || 'php'
+                    : null,
+                cloze_text: data.cloze_text || null,
+                short_answer: data.short_answer || null,
+                assemble_chunks: chunks.length > 0 ? chunks : null,
+            };
+
+            return payload;
+        });
+        form.post(flashcards.store().url, {
+            preserveScroll: true,
+            onSuccess: () => form.reset(),
+        });
+    };
+
     return (
         <>
-            <Head title="Add card" />
+            <Head title="Новая карточка" />
 
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-4 pb-24 sm:px-6 sm:pt-6 sm:pb-12">
                 <Button
                     asChild
                     variant="ghost"
@@ -26,137 +81,305 @@ export default function FlashcardCreate() {
                     className="self-start"
                 >
                     <Link href={flashcards.index().url}>
-                        <ArrowLeft />
-                        Back to cards
+                        <ArrowLeft />К карточкам
                     </Link>
                 </Button>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>New flashcard</CardTitle>
-                        <CardDescription>
-                            Create a question and the answer to memorise.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Form
-                            action={flashcards.store().url}
-                            method="post"
-                            resetOnSuccess
-                            className="flex flex-col gap-4"
-                        >
-                            {({ errors, processing }) => (
-                                <>
-                                    <div className="flex flex-col gap-2">
-                                        <Label htmlFor="category">
-                                            Category
-                                        </Label>
-                                        <Input
-                                            id="category"
-                                            name="category"
-                                            placeholder="PHP, Laravel, OOP…"
-                                            autoComplete="off"
-                                        />
-                                        {errors.category && (
-                                            <p className="text-sm text-destructive">
-                                                {errors.category}
-                                            </p>
-                                        )}
-                                    </div>
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Новая карточка
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Заполни хотя бы вопрос и ответ. Дополнительные поля
+                        активируют разные режимы изучения.
+                    </p>
+                </div>
 
-                                    <div className="flex flex-col gap-2">
-                                        <Label htmlFor="question">
-                                            Question
-                                        </Label>
-                                        <Textarea
-                                            id="question"
-                                            name="question"
-                                            required
-                                            rows={3}
-                                        />
-                                        {errors.question && (
-                                            <p className="text-sm text-destructive">
-                                                {errors.question}
-                                            </p>
-                                        )}
-                                    </div>
+                <form onSubmit={submit} className="flex flex-col gap-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">
+                                Основа карточки
+                            </CardTitle>
+                            <CardDescription>
+                                Минимум — вопрос и ответ. Категория группирует
+                                карточки и используется в режимах с
+                                дистракторами.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="category">Категория</Label>
+                                <Input
+                                    id="category"
+                                    list="category-options"
+                                    value={form.data.category}
+                                    onChange={(e) =>
+                                        form.setData('category', e.target.value)
+                                    }
+                                    placeholder="PHP, Laravel, OOP, Database…"
+                                    autoComplete="off"
+                                />
+                                <datalist id="category-options">
+                                    {knownCategories.map((c) => (
+                                        <option key={c} value={c} />
+                                    ))}
+                                </datalist>
+                                {form.errors.category && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.category}
+                                    </p>
+                                )}
+                            </div>
 
-                                    <div className="flex flex-col gap-2">
-                                        <Label htmlFor="answer">Answer</Label>
-                                        <Textarea
-                                            id="answer"
-                                            name="answer"
-                                            required
-                                            rows={6}
-                                        />
-                                        {errors.answer && (
-                                            <p className="text-sm text-destructive">
-                                                {errors.answer}
-                                            </p>
-                                        )}
-                                    </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="question">
+                                    Вопрос
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Textarea
+                                    id="question"
+                                    value={form.data.question}
+                                    onChange={(e) =>
+                                        form.setData('question', e.target.value)
+                                    }
+                                    rows={3}
+                                    required
+                                />
+                                {form.errors.question && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.question}
+                                    </p>
+                                )}
+                            </div>
 
-                                    <div className="grid gap-2 md:grid-cols-[1fr_140px]">
-                                        <div className="flex flex-col gap-2">
-                                            <Label htmlFor="code_example">
-                                                Code example (optional)
-                                            </Label>
-                                            <Textarea
-                                                id="code_example"
-                                                name="code_example"
-                                                rows={6}
-                                                placeholder="Shown after the answer to compare with."
-                                                spellCheck={false}
-                                                className="font-mono"
-                                            />
-                                            {errors.code_example && (
-                                                <p className="text-sm text-destructive">
-                                                    {errors.code_example}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <Label htmlFor="code_language">
-                                                Language
-                                            </Label>
-                                            <Input
-                                                id="code_language"
-                                                name="code_language"
-                                                defaultValue="php"
-                                                placeholder="php"
-                                                autoComplete="off"
-                                            />
-                                            {errors.code_language && (
-                                                <p className="text-sm text-destructive">
-                                                    {errors.code_language}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="answer">
+                                    Развёрнутый ответ
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Textarea
+                                    id="answer"
+                                    value={form.data.answer}
+                                    onChange={(e) =>
+                                        form.setData('answer', e.target.value)
+                                    }
+                                    rows={6}
+                                    required
+                                />
+                                {form.errors.answer && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.answer}
+                                    </p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                                    <div className="flex justify-end gap-2">
-                                        <Button
-                                            asChild
-                                            type="button"
-                                            variant="ghost"
-                                        >
-                                            <Link href={flashcards.index().url}>
-                                                Cancel
-                                            </Link>
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            disabled={processing}
-                                        >
-                                            Save card
-                                        </Button>
-                                    </div>
-                                </>
+                    <SectionCard
+                        icon={<Code2 className="size-4" />}
+                        title="Пример кода"
+                        description="Покажется после ответа в любом режиме. Язык влияет только на подсветку."
+                    >
+                        <div className="grid gap-4 md:grid-cols-[1fr_160px]">
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="code_example">Код</Label>
+                                <Textarea
+                                    id="code_example"
+                                    value={form.data.code_example}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'code_example',
+                                            e.target.value,
+                                        )
+                                    }
+                                    rows={6}
+                                    spellCheck={false}
+                                    placeholder={'<?php\n$x = 1;'}
+                                    className="font-mono"
+                                />
+                                {form.errors.code_example && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.code_example}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="code_language">Язык</Label>
+                                <Input
+                                    id="code_language"
+                                    value={form.data.code_language}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'code_language',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="php"
+                                    autoComplete="off"
+                                />
+                                {form.errors.code_language && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.code_language}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard
+                        icon={<PencilLine className="size-4 text-cyan-500" />}
+                        title="Заполни пропуски (cloze)"
+                        description={
+                            'Оборачивай слова в {{двойные фигурные}} — каждое станет полем ввода. Пример: php artisan {{make:controller}} {{--resource}}'
+                        }
+                    >
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="cloze_text">
+                                Шаблон с пропусками
+                            </Label>
+                            <Textarea
+                                id="cloze_text"
+                                value={form.data.cloze_text}
+                                onChange={(e) =>
+                                    form.setData('cloze_text', e.target.value)
+                                }
+                                rows={5}
+                                spellCheck={false}
+                                className="font-mono"
+                                placeholder={
+                                    'php artisan {{make:controller}} UserController {{--resource}}'
+                                }
+                            />
+                            {form.errors.cloze_text && (
+                                <p className="text-sm text-destructive">
+                                    {form.errors.cloze_text}
+                                </p>
                             )}
-                        </Form>
-                    </CardContent>
-                </Card>
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard
+                        icon={<Spline className="size-4 text-violet-500" />}
+                        title="Точный ввод (type-in)"
+                        description="Короткий ответ для дословного ввода — название функции, ключевое слово, команда. Опечатки прощаются по Левенштейну (0–2 символа в зависимости от длины)."
+                    >
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="short_answer">Короткий ответ</Label>
+                            <Input
+                                id="short_answer"
+                                value={form.data.short_answer}
+                                onChange={(e) =>
+                                    form.setData('short_answer', e.target.value)
+                                }
+                                spellCheck={false}
+                                autoComplete="off"
+                                className="font-mono"
+                                placeholder="explode"
+                            />
+                            {form.errors.short_answer && (
+                                <p className="text-sm text-destructive">
+                                    {form.errors.short_answer}
+                                </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Это поле также включает карточку в режим «Найди
+                                пары», когда в категории наберётся 4+ таких
+                                карточек.
+                            </p>
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard
+                        icon={<Puzzle className="size-4 text-fuchsia-500" />}
+                        title="Сборка из блоков (assemble)"
+                        description={
+                            'По одному блоку на строку — пользователь будет собирать цепочку в правильном порядке. Сервер добавит 2 случайных дистрактора из соседних карточек той же категории.'
+                        }
+                    >
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="assemble_chunks_text">
+                                Блоки (по строке)
+                            </Label>
+                            <Textarea
+                                id="assemble_chunks_text"
+                                value={form.data.assemble_chunks_text}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'assemble_chunks_text',
+                                        e.target.value,
+                                    )
+                                }
+                                rows={6}
+                                spellCheck={false}
+                                className="font-mono"
+                                placeholder={
+                                    "User::\nwhere('active', 1)\n->\nget()"
+                                }
+                            />
+                            {form.errors.assemble_chunks && (
+                                <p className="text-sm text-destructive">
+                                    {form.errors.assemble_chunks}
+                                </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Минимум 2 блока. Соседние блоки склеиваются
+                                подряд при отображении.
+                            </p>
+                        </div>
+                    </SectionCard>
+
+                    <Separator />
+
+                    <div
+                        className={cn(
+                            'sticky bottom-0 -mx-4 flex flex-row-reverse gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur',
+                            'sm:relative sm:mx-0 sm:border-none sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none',
+                        )}
+                    >
+                        <Button
+                            type="submit"
+                            disabled={form.processing}
+                            className="flex-1 sm:flex-none"
+                        >
+                            Сохранить карточку
+                        </Button>
+                        <Button
+                            asChild
+                            type="button"
+                            variant="ghost"
+                            className="hidden sm:inline-flex"
+                        >
+                            <Link href={flashcards.index().url}>Отмена</Link>
+                        </Button>
+                    </div>
+                </form>
             </div>
         </>
+    );
+}
+
+function SectionCard({
+    icon,
+    title,
+    description,
+    children,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                    {icon}
+                    {title}
+                </CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent>{children}</CardContent>
+        </Card>
     );
 }
