@@ -15,7 +15,12 @@ class FlashcardController extends Controller
         return Inertia::render('flashcards/index', [
             'flashcards' => Flashcard::query()
                 ->latest('id')
-                ->get(['id', 'category', 'question', 'answer', 'code_example', 'code_language', 'correct_streak', 'required_correct', 'is_learned']),
+                ->get([
+                    'id', 'category', 'question', 'answer',
+                    'code_example', 'code_language',
+                    'cloze_text', 'short_answer', 'assemble_chunks',
+                    'correct_streak', 'required_correct', 'is_learned',
+                ]),
             'stats' => [
                 'total' => Flashcard::query()->count(),
                 'learned' => Flashcard::query()->where('is_learned', true)->count(),

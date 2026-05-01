@@ -13,11 +13,26 @@ class StudyController extends Controller
     private const FIELDS = [
         'id', 'category', 'question', 'answer',
         'code_example', 'code_language',
+        'cloze_text', 'short_answer', 'assemble_chunks',
         'correct_streak', 'required_correct',
     ];
 
     public function show(): Response
     {
+        $matching = $this->buildMatching();
+
+        if ($matching !== null && random_int(1, 5) === 1) {
+            return Inertia::render('study/index', [
+                'mode' => 'matching',
+                'flashcard' => null,
+                'shown' => null,
+                'options' => null,
+                'assemble' => null,
+                'matching' => $matching,
+                'stats' => $this->stats(),
+            ]);
+        }
+
         $flashcard = Flashcard::query()->due()->inRandomOrder()->first();
 
         if ($flashcard === null) {
@@ -26,6 +41,8 @@ class StudyController extends Controller
                 'flashcard' => null,
                 'shown' => null,
                 'options' => null,
+                'assemble' => null,
+                'matching' => null,
                 'stats' => $this->stats(),
             ]);
         }
@@ -38,6 +55,8 @@ class StudyController extends Controller
             'flashcard' => $flashcard->only(self::FIELDS),
             'shown' => $mode === 'true_false' ? $this->trueFalseAnswer($flashcard) : null,
             'options' => $mode === 'multiple_choice' ? $this->multipleChoiceOptions($flashcard) : null,
+            'assemble' => $mode === 'assemble' ? $this->assemblePool($flashcard) : null,
+            'matching' => null,
             'stats' => $this->stats(),
         ]);
     }
@@ -51,6 +70,28 @@ class StudyController extends Controller
         $data['result'] === 'correct'
             ? $flashcard->markCorrect()
             : $flashcard->markIncorrect();
+
+        return redirect()->route('study.show');
+    }
+
+    public function matching(): RedirectResponse
+    {
+        $data = request()->validate([
+            'pairs' => ['required', 'array', 'min:1', 'max:20'],
+            'pairs.*.question_id' => ['required', 'integer', 'exists:flashcards,id'],
+            'pairs.*.answer_id' => ['required', 'integer', 'exists:flashcards,id'],
+        ]);
+
+        foreach ($data['pairs'] as $pair) {
+            $card = Flashcard::query()->find($pair['question_id']);
+            if ($card === null) {
+                continue;
+            }
+
+            $pair['question_id'] === $pair['answer_id']
+                ? $card->markCorrect()
+                : $card->markIncorrect();
+        }
 
         return redirect()->route('study.show');
     }
@@ -73,6 +114,18 @@ class StudyController extends Controller
 
         if ($sameCategoryCount >= 3) {
             $modes[] = 'multiple_choice';
+        }
+
+        if ($card->cloze_text !== null && preg_match('/\{\{(.+?)\}\}/', $card->cloze_text) === 1) {
+            $modes[] = 'cloze';
+        }
+
+        if (filled($card->short_answer)) {
+            $modes[] = 'type_in';
+        }
+
+        if (is_array($card->assemble_chunks) && count($card->assemble_chunks) >= 2) {
+            $modes[] = 'assemble';
         }
 
         return $modes;
@@ -135,6 +188,80 @@ class StudyController extends Controller
             ->shuffle()
             ->values()
             ->toArray();
+    }
+
+    /**
+     * @return array{pool: array<int, string>}
+     */
+    private function assemblePool(Flashcard $card): array
+    {
+        /** @var array<int, string> $correct */
+        $correct = (array) $card->assemble_chunks;
+
+        $distractors = Flashcard::query()
+            ->where('id', '!=', $card->id)
+            ->where('category', $card->category)
+            ->whereNotNull('assemble_chunks')
+            ->inRandomOrder()
+            ->limit(5)
+            ->get()
+            ->flatMap(fn (Flashcard $c) => (array) $c->assemble_chunks)
+            ->reject(fn (string $chunk) => in_array($chunk, $correct, true))
+            ->unique()
+            ->shuffle()
+            ->take(2)
+            ->values()
+            ->all();
+
+        $pool = collect([...$correct, ...$distractors])
+            ->shuffle()
+            ->values()
+            ->all();
+
+        return ['pool' => $pool];
+    }
+
+    /**
+     * @return array{
+     *     category: string,
+     *     questions: array<int, array{id: int, text: string}>,
+     *     answers: array<int, array{id: int, text: string}>
+     * }|null
+     */
+    private function buildMatching(): ?array
+    {
+        $category = Flashcard::query()
+            ->due()
+            ->whereNotNull('short_answer')
+            ->groupBy('category')
+            ->havingRaw('COUNT(*) >= 4')
+            ->inRandomOrder()
+            ->value('category');
+
+        if ($category === null) {
+            return null;
+        }
+
+        $cards = Flashcard::query()
+            ->due()
+            ->whereNotNull('short_answer')
+            ->where('category', $category)
+            ->inRandomOrder()
+            ->limit(4)
+            ->get(['id', 'question', 'short_answer']);
+
+        return [
+            'category' => $category,
+            'questions' => $cards
+                ->map(fn (Flashcard $c) => ['id' => $c->id, 'text' => $c->question])
+                ->values()
+                ->all(),
+            'answers' => $cards
+                ->shuffle()
+                ->map(fn (Flashcard $c) => ['id' => $c->id, 'text' => (string) $c->short_answer])
+                ->values()
+                ->all(),
+        ];
     }
 
     /**

@@ -14,3 +14,4 @@ Route::post('flashcards/reset', [FlashcardController::class, 'reset'])->name('fl
 
 Route::get('study', [StudyController::class, 'show'])->name('study.show');
 Route::post('study/{flashcard}/answer', [StudyController::class, 'answer'])->name('study.answer');
+Route::post('study/matching', [StudyController::class, 'matching'])->name('study.matching');

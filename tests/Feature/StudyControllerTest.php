@@ -93,3 +93,81 @@ it('rejects an unknown result value', function (): void {
     $this->post(route('study.answer', $card), ['result' => 'maybe'])
         ->assertSessionHasErrors('result');
 });
+
+it('exposes cloze mode when cloze_text is set', function (): void {
+    Flashcard::factory()->withCloze()->create(['category' => 'PHP']);
+
+    $modes = collect();
+    for ($i = 0; $i < 30; $i++) {
+        $modes->push(studyMode($this->get(route('study.show'))));
+    }
+
+    expect($modes->unique()->all())->toContain('cloze');
+});
+
+it('exposes type_in mode when short_answer is set', function (): void {
+    Flashcard::factory()->withShortAnswer()->create(['category' => 'PHP']);
+
+    $modes = collect();
+    for ($i = 0; $i < 30; $i++) {
+        $modes->push(studyMode($this->get(route('study.show'))));
+    }
+
+    expect($modes->unique()->all())->toContain('type_in');
+});
+
+it('exposes assemble mode with a shuffled pool when assemble_chunks is set', function (): void {
+    Flashcard::factory()->withAssemble()->create(['category' => 'PHP']);
+
+    for ($i = 0; $i < 40; $i++) {
+        $response = $this->get(route('study.show'));
+        if (studyMode($response) === 'assemble') {
+            $props = $response->getOriginalContent()->getData()['page']['props'];
+            expect($props['assemble']['pool'])
+                ->toBeArray()
+                ->and(count($props['assemble']['pool']))->toBeGreaterThanOrEqual(2);
+
+            return;
+        }
+    }
+    $this->fail('assemble mode was never selected over 40 trials');
+});
+
+it('builds a matching payload when 4+ cards in a category have short_answer', function (): void {
+    Flashcard::factory()->count(4)->withShortAnswer()->create(['category' => 'Match']);
+
+    $matched = false;
+    for ($i = 0; $i < 60; $i++) {
+        $response = $this->get(route('study.show'));
+        if (studyMode($response) === 'matching') {
+            $props = $response->getOriginalContent()->getData()['page']['props'];
+            expect($props['matching']['questions'])->toHaveCount(4)
+                ->and($props['matching']['answers'])->toHaveCount(4)
+                ->and($props['matching']['category'])->toBe('Match');
+            $matched = true;
+            break;
+        }
+    }
+    expect($matched)->toBeTrue();
+});
+
+it('marks each pair correctly via matching endpoint', function (): void {
+    $a = Flashcard::factory()->create();
+    $b = Flashcard::factory()->create();
+
+    $this->post(route('study.matching'), [
+        'pairs' => [
+            ['question_id' => $a->id, 'answer_id' => $a->id],
+            ['question_id' => $b->id, 'answer_id' => $a->id],
+        ],
+    ])->assertRedirect(route('study.show'));
+
+    expect($a->fresh()->is_learned)->toBeTrue()
+        ->and($b->fresh()->is_learned)->toBeFalse()
+        ->and($b->fresh()->required_correct)->toBe(2);
+});
+
+it('rejects matching payload without pairs', function (): void {
+    $this->post(route('study.matching'), [])
+        ->assertSessionHasErrors('pairs');
+});
