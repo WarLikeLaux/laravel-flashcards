@@ -17,17 +17,17 @@ import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Cards',
+        title: 'Карточки',
         href: flashcards.index().url,
         icon: Layers,
     },
     {
-        title: 'Add card',
+        title: 'Новая карточка',
         href: flashcards.create().url,
         icon: Plus,
     },
     {
-        title: 'Study',
+        title: 'Изучение',
         href: study.show().url,
         icon: GraduationCap,
     },
