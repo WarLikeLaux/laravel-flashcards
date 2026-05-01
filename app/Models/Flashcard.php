@@ -16,6 +16,8 @@ class Flashcard extends Model
         'category',
         'question',
         'answer',
+        'code_example',
+        'code_language',
         'correct_streak',
         'required_correct',
         'is_learned',
