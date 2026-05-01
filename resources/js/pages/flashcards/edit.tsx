@@ -3,11 +3,16 @@ import { ArrowLeft } from 'lucide-react';
 import { FlashcardForm } from '@/components/flashcard-form';
 import { Button } from '@/components/ui/button';
 import flashcards from '@/routes/flashcards';
+import type { Flashcard } from '@/types';
 
-export default function FlashcardCreate() {
+type Props = {
+    flashcard: Flashcard;
+};
+
+export default function FlashcardEdit({ flashcard }: Props) {
     return (
         <>
-            <Head title="Новая карточка" />
+            <Head title="Редактирование карточки" />
 
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-4 pb-24 sm:px-6 sm:pt-6 sm:pb-12">
                 <Button
@@ -23,15 +28,19 @@ export default function FlashcardCreate() {
 
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                        Новая карточка
+                        Редактирование карточки
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Заполни хотя бы вопрос и ответ. Дополнительные поля
-                        активируют разные режимы изучения.
+                        Измени любые поля. Прогресс обучения карточки не
+                        сбрасывается.
                     </p>
                 </div>
 
-                <FlashcardForm mode="create" submitLabel="Сохранить карточку" />
+                <FlashcardForm
+                    mode="edit"
+                    initial={flashcard}
+                    submitLabel="Сохранить изменения"
+                />
             </div>
         </>
     );
