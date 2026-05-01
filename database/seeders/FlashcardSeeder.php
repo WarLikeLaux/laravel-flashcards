@@ -3,13 +3,14 @@
 namespace Database\Seeders;
 
 use App\Models\Flashcard;
+use Database\Seeders\Data\InterviewQuestions;
 use Illuminate\Database\Seeder;
 
 class FlashcardSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach ($this->cards() as $card) {
+        foreach ([...$this->cards(), ...InterviewQuestions::all()] as $card) {
             Flashcard::query()->create($card);
         }
     }
