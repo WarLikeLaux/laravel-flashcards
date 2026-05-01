@@ -160,18 +160,11 @@ class StudyController extends Controller
      */
     private function multipleChoiceOptions(Flashcard $card): array
     {
-        $sameCategoryCount = Flashcard::query()
-            ->where('id', '!=', $card->id)
-            ->where('category', $card->category)
-            ->count();
-
-        $optionsCount = max(4, min(10, $sameCategoryCount + 1));
-
         $distractors = Flashcard::query()
             ->where('id', '!=', $card->id)
             ->where('category', $card->category)
             ->inRandomOrder()
-            ->limit($optionsCount - 1)
+            ->limit(3)
             ->get();
 
         return $distractors
