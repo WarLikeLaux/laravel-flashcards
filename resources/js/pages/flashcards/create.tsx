@@ -96,6 +96,44 @@ export default function FlashcardCreate() {
                                         )}
                                     </div>
 
+                                    <div className="grid gap-2 md:grid-cols-[1fr_140px]">
+                                        <div className="flex flex-col gap-2">
+                                            <Label htmlFor="code_example">
+                                                Code example (optional)
+                                            </Label>
+                                            <Textarea
+                                                id="code_example"
+                                                name="code_example"
+                                                rows={6}
+                                                placeholder="Shown after the answer to compare with."
+                                                spellCheck={false}
+                                                className="font-mono"
+                                            />
+                                            {errors.code_example && (
+                                                <p className="text-sm text-destructive">
+                                                    {errors.code_example}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <Label htmlFor="code_language">
+                                                Language
+                                            </Label>
+                                            <Input
+                                                id="code_language"
+                                                name="code_language"
+                                                defaultValue="php"
+                                                placeholder="php"
+                                                autoComplete="off"
+                                            />
+                                            {errors.code_language && (
+                                                <p className="text-sm text-destructive">
+                                                    {errors.code_language}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     <div className="flex justify-end gap-2">
                                         <Button
                                             asChild

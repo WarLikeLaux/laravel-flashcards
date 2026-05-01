@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { GraduationCap, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { CodeBlock } from '@/components/code-block';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -104,6 +105,12 @@ export default function FlashcardsIndex({ flashcards: cards, stats }: Props) {
                                     <p className="text-sm whitespace-pre-line text-muted-foreground">
                                         {card.answer}
                                     </p>
+                                    {card.code_example && (
+                                        <CodeBlock
+                                            code={card.code_example}
+                                            language={card.code_language}
+                                        />
+                                    )}
                                     <Form
                                         action={flashcards.destroy(card.id).url}
                                         method="delete"
