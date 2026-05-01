@@ -18,12 +18,16 @@ class Flashcard extends Model
         'answer',
         'code_example',
         'code_language',
+        'cloze_text',
+        'short_answer',
+        'assemble_chunks',
         'correct_streak',
         'required_correct',
         'is_learned',
     ];
 
     protected $casts = [
+        'assemble_chunks' => 'array',
         'correct_streak' => 'integer',
         'required_correct' => 'integer',
         'is_learned' => 'boolean',

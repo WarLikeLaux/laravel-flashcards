@@ -23,6 +23,10 @@ class StoreFlashcardRequest extends FormRequest
             'answer' => ['required', 'string', 'max:5000'],
             'code_example' => ['nullable', 'string', 'max:10000'],
             'code_language' => ['nullable', 'string', 'max:32'],
+            'cloze_text' => ['nullable', 'string', 'max:5000'],
+            'short_answer' => ['nullable', 'string', 'max:255'],
+            'assemble_chunks' => ['nullable', 'array', 'min:2', 'max:20'],
+            'assemble_chunks.*' => ['required', 'string', 'max:200'],
         ];
     }
 }
