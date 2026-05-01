@@ -32,10 +32,25 @@ it('stores a flashcard', function (): void {
         'category' => 'PHP',
         'question' => 'What is PSR-4?',
         'answer' => 'Autoloading standard.',
+        'code_example' => "<?php\necho 1;",
+        'code_language' => 'php',
     ])->assertRedirect(route('flashcards.index'));
 
-    expect(Flashcard::query()->count())->toBe(1);
-    expect(Flashcard::query()->first()->question)->toBe('What is PSR-4?');
+    $card = Flashcard::query()->sole();
+    expect($card->question)->toBe('What is PSR-4?')
+        ->and($card->code_example)->toBe("<?php\necho 1;")
+        ->and($card->code_language)->toBe('php');
+});
+
+it('stores a flashcard without optional code', function (): void {
+    $this->post(route('flashcards.store'), [
+        'question' => 'Q',
+        'answer' => 'A',
+    ])->assertRedirect(route('flashcards.index'));
+
+    $card = Flashcard::query()->sole();
+    expect($card->code_example)->toBeNull()
+        ->and($card->code_language)->toBeNull();
 });
 
 it('validates required fields when storing', function (): void {
