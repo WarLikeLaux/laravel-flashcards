@@ -1,14 +1,19 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     GraduationCap,
     Layers,
+    MoreHorizontal,
+    Pencil,
     PencilLine,
     Plus,
     Puzzle,
     RotateCcw,
+    Search,
     Spline,
     Trash2,
+    X,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
 import { CodeBlock } from '@/components/code-block';
 import { Badge } from '@/components/ui/badge';
@@ -20,111 +25,183 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { categoryStyle } from '@/lib/category-colors';
+import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import study from '@/routes/study';
 import type { Flashcard, FlashcardStats } from '@/types';
 
+type CategoryStat = {
+    name: string;
+    total: number;
+    learned: number;
+};
+
+type Filters = {
+    q: string;
+    status: 'all' | 'due' | 'learned';
+    category: string;
+};
+
 type Props = {
     flashcards: Flashcard[];
     stats: FlashcardStats;
+    categoryStats: CategoryStat[];
+    filters: Filters;
 };
 
-export default function FlashcardsIndex({ flashcards: cards, stats }: Props) {
-    const dueCount = stats.due;
+const statusOptions: { value: Filters['status']; label: string }[] = [
+    { value: 'all', label: 'Все' },
+    { value: 'due', label: 'К повтору' },
+    { value: 'learned', label: 'Выучено' },
+];
+
+export default function FlashcardsIndex({
+    flashcards: cards,
+    stats,
+    categoryStats,
+    filters,
+}: Props) {
+    const [search, setSearch] = useState(filters.q);
     const learnedPercent =
         stats.total === 0 ? 0 : Math.round((stats.learned / stats.total) * 100);
+
+    const applyFilter = useCallback(
+        (next: Partial<Filters>) => {
+            const merged: Record<string, string> = {
+                q: next.q ?? filters.q,
+                status: next.status ?? filters.status,
+                category: next.category ?? filters.category,
+            };
+
+            if (merged.q === '') {
+                delete merged.q;
+            }
+
+            if (merged.status === 'all') {
+                delete merged.status;
+            }
+
+            if (merged.category === 'all' || merged.category === '') {
+                delete merged.category;
+            }
+
+            router.get(flashcards.index().url, merged, {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            });
+        },
+        [filters.q, filters.status, filters.category],
+    );
+
+    useEffect(() => {
+        if (search === filters.q) {
+            return;
+        }
+
+        const t = window.setTimeout(() => {
+            applyFilter({ q: search });
+        }, 250);
+
+        return () => window.clearTimeout(t);
+    }, [search, filters.q, applyFilter]);
+
+    const hasFilters =
+        filters.q !== '' ||
+        filters.status !== 'all' ||
+        (filters.category !== 'all' && filters.category !== '');
 
     return (
         <>
             <Head title="Карточки" />
 
             <div className="flex flex-1 flex-col gap-5 px-4 pt-4 pb-24 sm:gap-6 sm:px-6 sm:pt-6 sm:pb-12">
-                <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-violet-500/10 via-background to-fuchsia-500/10 p-5 sm:p-7">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-                        <div className="flex flex-col gap-1">
-                            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                                Карточки
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                Тренажёр для подготовки к собеседованиям. Семь
-                                режимов изучения чередуются автоматически.
-                            </p>
-                        </div>
+                <Hero
+                    stats={stats}
+                    learnedPercent={learnedPercent}
+                    categoryStats={categoryStats}
+                    activeCategory={filters.category}
+                    onCategoryClick={(c) => applyFilter({ category: c })}
+                />
 
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                asChild
-                                size="lg"
-                                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md hover:from-violet-700 hover:to-fuchsia-700"
-                            >
-                                <Link href={study.show().url}>
-                                    <GraduationCap />
-                                    Учить
-                                    {dueCount > 0 && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1 bg-white/20 text-white"
-                                        >
-                                            {dueCount}
-                                        </Badge>
-                                    )}
-                                </Link>
-                            </Button>
-                            <Button asChild variant="outline" size="lg">
-                                <Link href={flashcards.create().url}>
-                                    <Plus />
-                                    Добавить
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-3 gap-3 sm:max-w-md">
-                        <Stat label="Всего" value={stats.total} />
-                        <Stat label="К повтору" value={stats.due} />
-                        <Stat
-                            label="Выучено"
-                            value={`${stats.learned} (${learnedPercent}%)`}
-                        />
-                    </div>
-
-                    {stats.total > 0 && (
-                        <div className="mt-5">
-                            <Form action={flashcards.reset().url} method="post">
-                                <Button
-                                    type="submit"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-muted-foreground"
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Поиск по вопросу, ответу, категории…"
+                                className="h-10 pr-9 pl-9"
+                            />
+                            {search && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearch('')}
+                                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent"
                                 >
-                                    <RotateCcw />
-                                    Сбросить прогресс
-                                </Button>
-                            </Form>
+                                    <X className="size-4" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex w-full gap-1 rounded-lg border bg-muted/40 p-1 sm:w-auto">
+                            {statusOptions.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() =>
+                                        applyFilter({ status: opt.value })
+                                    }
+                                    className={cn(
+                                        'flex-1 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors sm:flex-none',
+                                        filters.status === opt.value
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground',
+                                    )}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {filters.category !== 'all' && filters.category !== '' && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                                Категория:
+                            </span>
+                            <Badge
+                                variant="outline"
+                                className={cn(
+                                    'gap-1.5',
+                                    categoryStyle(filters.category).badge,
+                                )}
+                            >
+                                {filters.category}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        applyFilter({ category: 'all' })
+                                    }
+                                    className="ml-1 rounded-full"
+                                >
+                                    <X className="size-3" />
+                                </button>
+                            </Badge>
                         </div>
                     )}
                 </div>
 
                 {cards.length === 0 ? (
-                    <Card className="border-dashed">
-                        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-                            <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
-                                <Plus className="size-6 text-muted-foreground" />
-                            </div>
-                            <CardTitle>Пока нет карточек</CardTitle>
-                            <CardDescription className="max-w-sm">
-                                Добавь первую карточку — можно сразу с кодом,
-                                пропусками или порядком блоков для разных
-                                режимов.
-                            </CardDescription>
-                            <Button asChild>
-                                <Link href={flashcards.create().url}>
-                                    <Plus />
-                                    Добавить карточку
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <EmptyResult hasFilters={hasFilters} />
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {cards.map((card) => (
@@ -134,6 +211,117 @@ export default function FlashcardsIndex({ flashcards: cards, stats }: Props) {
                 )}
             </div>
         </>
+    );
+}
+
+function Hero({
+    stats,
+    learnedPercent,
+    categoryStats,
+    activeCategory,
+    onCategoryClick,
+}: {
+    stats: FlashcardStats;
+    learnedPercent: number;
+    categoryStats: CategoryStat[];
+    activeCategory: string;
+    onCategoryClick: (c: string) => void;
+}) {
+    return (
+        <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-violet-500/10 via-background to-fuchsia-500/10 p-5 sm:p-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Карточки
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Тренажёр для подготовки к собеседованиям. Семь режимов
+                        изучения чередуются автоматически.
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                        asChild
+                        size="lg"
+                        className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md hover:from-violet-700 hover:to-fuchsia-700"
+                    >
+                        <Link href={study.show().url}>
+                            <GraduationCap />
+                            Учить
+                            {stats.due > 0 && (
+                                <Badge
+                                    variant="secondary"
+                                    className="ml-1 bg-white/20 text-white"
+                                >
+                                    {stats.due}
+                                </Badge>
+                            )}
+                        </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="lg">
+                        <Link href={flashcards.create().url}>
+                            <Plus />
+                            Добавить
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 sm:max-w-md">
+                <Stat label="Всего" value={stats.total} />
+                <Stat label="К повтору" value={stats.due} />
+                <Stat
+                    label="Выучено"
+                    value={`${stats.learned} (${learnedPercent}%)`}
+                />
+            </div>
+
+            {categoryStats.length > 0 && (
+                <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+                    <CategoryChip
+                        active={
+                            activeCategory === 'all' || activeCategory === ''
+                        }
+                        onClick={() => onCategoryClick('all')}
+                        label={`Все · ${stats.total}`}
+                        progress={
+                            stats.total === 0
+                                ? 0
+                                : (stats.learned / stats.total) * 100
+                        }
+                    />
+                    {categoryStats.map((c) => (
+                        <CategoryChip
+                            key={c.name}
+                            active={activeCategory === c.name}
+                            onClick={() => onCategoryClick(c.name)}
+                            label={`${c.name} · ${c.learned}/${c.total}`}
+                            progress={
+                                c.total === 0 ? 0 : (c.learned / c.total) * 100
+                            }
+                            color={categoryStyle(c.name).dot}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {stats.total > 0 && (
+                <div className="mt-5">
+                    <Form action={flashcards.reset().url} method="post">
+                        <Button
+                            type="submit"
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground"
+                        >
+                            <RotateCcw />
+                            Сбросить прогресс
+                        </Button>
+                    </Form>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -148,24 +336,108 @@ function Stat({ label, value }: { label: string; value: number | string }) {
     );
 }
 
+function CategoryChip({
+    label,
+    active,
+    onClick,
+    progress,
+    color,
+}: {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+    progress: number;
+    color?: string;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                'group flex shrink-0 flex-col gap-1.5 rounded-xl border bg-background/60 px-3 py-2 text-left text-xs backdrop-blur transition-all sm:shrink',
+                active
+                    ? 'border-foreground/40 shadow-sm'
+                    : 'hover:border-foreground/20',
+            )}
+        >
+            <div className="flex items-center gap-1.5">
+                {color && (
+                    <span className={cn('size-1.5 rounded-full', color)} />
+                )}
+                <span
+                    className={cn(
+                        'text-xs font-medium',
+                        active
+                            ? 'text-foreground'
+                            : 'text-muted-foreground group-hover:text-foreground',
+                    )}
+                >
+                    {label}
+                </span>
+            </div>
+            <div className="h-1 w-24 overflow-hidden rounded-full bg-muted sm:w-32">
+                <div
+                    className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all"
+                    style={{ width: `${Math.min(100, progress)}%` }}
+                />
+            </div>
+        </button>
+    );
+}
+
+function EmptyResult({ hasFilters }: { hasFilters: boolean }) {
+    return (
+        <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
+                    {hasFilters ? (
+                        <Search className="size-6 text-muted-foreground" />
+                    ) : (
+                        <Plus className="size-6 text-muted-foreground" />
+                    )}
+                </div>
+                <CardTitle>
+                    {hasFilters ? 'Ничего не найдено' : 'Пока нет карточек'}
+                </CardTitle>
+                <CardDescription className="max-w-sm">
+                    {hasFilters
+                        ? 'Попробуй изменить запрос или сбросить фильтры.'
+                        : 'Добавь первую карточку — можно сразу с кодом, пропусками или порядком блоков для разных режимов.'}
+                </CardDescription>
+                {!hasFilters && (
+                    <Button asChild>
+                        <Link href={flashcards.create().url}>
+                            <Plus />
+                            Добавить карточку
+                        </Link>
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 function FlashcardCard({ card }: { card: Flashcard }) {
     return (
         <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-md">
             <CardHeader className="gap-2">
-                <div className="flex items-center justify-between gap-2">
-                    <CategoryBadge category={card.category} />
-                    {card.is_learned ? (
-                        <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                            выучено
-                        </Badge>
-                    ) : (
-                        <Badge
-                            variant="outline"
-                            className="font-mono tabular-nums"
-                        >
-                            {card.correct_streak}/{card.required_correct}
-                        </Badge>
-                    )}
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <CategoryBadge category={card.category} />
+                        {card.is_learned ? (
+                            <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                выучено
+                            </Badge>
+                        ) : (
+                            <Badge
+                                variant="outline"
+                                className="font-mono tabular-nums"
+                            >
+                                {card.correct_streak}/{card.required_correct}
+                            </Badge>
+                        )}
+                    </div>
+                    <CardActions card={card} />
                 </div>
                 <CardTitle className="text-base leading-snug">
                     {card.question}
@@ -182,23 +454,51 @@ function FlashcardCard({ card }: { card: Flashcard }) {
                         language={card.code_language}
                     />
                 )}
-                <Form
-                    action={flashcards.destroy(card.id).url}
-                    method="delete"
-                    className="mt-auto flex justify-end"
-                >
-                    <Button
-                        type="submit"
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-destructive"
-                    >
-                        <Trash2 />
-                        Удалить
-                    </Button>
-                </Form>
             </CardContent>
         </Card>
+    );
+}
+
+function CardActions({ card }: { card: Flashcard }) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-muted-foreground"
+                >
+                    <MoreHorizontal className="size-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem asChild>
+                    <Link href={flashcards.edit(card.id).url}>
+                        <Pencil className="mr-2 size-4" />
+                        Редактировать
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(e) => {
+                        e.preventDefault();
+
+                        if (
+                            confirm(
+                                'Удалить карточку без возможности восстановления?',
+                            )
+                        ) {
+                            router.delete(flashcards.destroy(card.id).url, {
+                                preserveScroll: true,
+                            });
+                        }
+                    }}
+                >
+                    <Trash2 className="mr-2 size-4" />
+                    Удалить
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 
