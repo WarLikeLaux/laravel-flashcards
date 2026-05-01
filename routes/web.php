@@ -9,8 +9,10 @@ Route::redirect('/', '/flashcards');
 Route::get('flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
 Route::get('flashcards/create', [FlashcardController::class, 'create'])->name('flashcards.create');
 Route::post('flashcards', [FlashcardController::class, 'store'])->name('flashcards.store');
-Route::delete('flashcards/{flashcard}', [FlashcardController::class, 'destroy'])->name('flashcards.destroy');
 Route::post('flashcards/reset', [FlashcardController::class, 'reset'])->name('flashcards.reset');
+Route::get('flashcards/{flashcard}/edit', [FlashcardController::class, 'edit'])->name('flashcards.edit');
+Route::patch('flashcards/{flashcard}', [FlashcardController::class, 'update'])->name('flashcards.update');
+Route::delete('flashcards/{flashcard}', [FlashcardController::class, 'destroy'])->name('flashcards.destroy');
 
 Route::get('study', [StudyController::class, 'show'])->name('study.show');
 Route::post('study/{flashcard}/answer', [StudyController::class, 'answer'])->name('study.answer');
