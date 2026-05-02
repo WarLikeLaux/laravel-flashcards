@@ -5,7 +5,7 @@ namespace Database\Seeders\Data\Categories;
 class DatabaseQuestions
 {
     /**
-     * @return array<int, array{category: string, question: string, answer: string, code_example: ?string, code_language: ?string}>
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, cloze_text?: ?string, short_answer?: ?string, assemble_chunks?: ?array<int, string>}>
      */
     public static function all(): array
     {
@@ -1463,6 +1463,77 @@ SELECT id, title, created_at FROM posts
 WHERE (created_at, id) < (:cursor_at, :cursor_id)
 ORDER BY created_at DESC, id DESC
 LIMIT 20;',
+                'code_language' => 'sql',
+            ],
+
+            // ===== Cloze =====
+            [
+                'category' => 'Базы данных',
+                'question' => 'Заполни SQL для топ-10 пользователей по количеству заказов.',
+                'answer' => 'GROUP BY с COUNT и сортировкой DESC, LIMIT - стандартная конструкция top-N.',
+                'cloze_text' => 'SELECT u.id, COUNT(o.id) AS orders
+FROM users u
+{{LEFT JOIN}} orders o ON o.user_id = u.id
+{{GROUP BY}} u.id
+ORDER BY orders {{DESC}}
+LIMIT 10;',
+                'code_language' => 'sql',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Заполни оконную функцию для нумерации заказов внутри пользователя по дате.',
+                'answer' => 'ROW_NUMBER() с PARTITION BY раскладывает строки по группам и нумерует внутри каждой согласно ORDER BY.',
+                'cloze_text' => 'SELECT id, user_id,
+       {{ROW_NUMBER}}() OVER ({{PARTITION BY}} user_id ORDER BY created_at) AS n
+FROM orders;',
+                'code_language' => 'sql',
+            ],
+
+            // ===== Type-in =====
+            [
+                'category' => 'Базы данных',
+                'question' => 'SQL-команда, объединяющая результаты двух запросов без дубликатов.',
+                'answer' => 'UNION удаляет дубликаты, UNION ALL - оставляет.',
+                'short_answer' => 'UNION',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'SQL-конструкция для условного выражения, аналог if/then.',
+                'answer' => 'CASE WHEN ... THEN ... ELSE ... END - стандартное портируемое выражение.',
+                'short_answer' => 'CASE',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Уровень изоляции, при котором допустимы non-repeatable reads и phantom reads.',
+                'answer' => 'READ COMMITTED - компромиссный уровень по умолчанию во многих БД (Postgres, Oracle).',
+                'short_answer' => 'READ COMMITTED',
+            ],
+
+            // ===== Assemble =====
+            [
+                'category' => 'Базы данных',
+                'question' => 'Собери SQL: 5 самых дорогих заказов с email клиента.',
+                'answer' => 'JOIN по внешнему ключу + ORDER BY DESC + LIMIT.',
+                'assemble_chunks' => [
+                    'SELECT o.id, o.total, u.email',
+                    "\nFROM orders o",
+                    "\nJOIN users u ON u.id = o.user_id",
+                    "\nORDER BY o.total DESC",
+                    "\nLIMIT 5",
+                    ';',
+                ],
+                'code_language' => 'sql',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Собери UPDATE с подзапросом на максимум.',
+                'answer' => 'Можно использовать коррелированный подзапрос или CTE для денормализованного поля.',
+                'assemble_chunks' => [
+                    'UPDATE users u',
+                    "\nSET last_order_at = (SELECT MAX(created_at) FROM orders o WHERE o.user_id = u.id)",
+                    "\nWHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+                    ';',
+                ],
                 'code_language' => 'sql',
             ],
         ];

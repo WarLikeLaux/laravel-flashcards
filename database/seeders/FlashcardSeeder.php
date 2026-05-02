@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Flashcard;
-use Database\Seeders\Data\AdvancedQuestions;
 use Database\Seeders\Data\Categories\DatabaseQuestions;
 use Database\Seeders\Data\Categories\LaravelQuestions;
 use Database\Seeders\Data\Categories\OopQuestions;
@@ -22,7 +21,6 @@ class FlashcardSeeder extends Seeder
             ...LaravelQuestions::all(),
             ...DatabaseQuestions::all(),
             ...SystemDesignQuestions::all(),
-            ...AdvancedQuestions::all(),
         ];
 
         foreach ($cards as $card) {

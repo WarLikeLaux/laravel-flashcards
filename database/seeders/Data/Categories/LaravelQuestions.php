@@ -5,7 +5,7 @@ namespace Database\Seeders\Data\Categories;
 class LaravelQuestions
 {
     /**
-     * @return array<int, array{category: string, question: string, answer: string, code_example: ?string, code_language: ?string}>
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, cloze_text?: ?string, short_answer?: ?string, assemble_chunks?: ?array<int, string>}>
      */
     public static function all(): array
     {
@@ -2030,6 +2030,138 @@ DB::transaction(function () use ($from, $to, $sum) {
     $to->lockForUpdate()->increment("balance", $sum);
 }, attempts: 3);',
                 'code_language' => 'php',
+            ],
+
+            // ===== Cloze =====
+            [
+                'category' => 'Laravel',
+                'question' => 'Заполни команду artisan для создания resource-контроллера UserController.',
+                'answer' => 'php artisan make:controller UserController --resource создаёт контроллер с CRUD-методами index/create/store/show/edit/update/destroy.',
+                'cloze_text' => 'php artisan {{make:controller}} UserController {{--resource}}',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Заполни Eloquent-определение связи "many-to-many" с пивотом role_user.',
+                'answer' => 'belongsToMany определяется на обеих моделях. Пивот-таблица по умолчанию называется в алфавитном порядке singular-имён моделей.',
+                'cloze_text' => 'public function roles() {
+    return $this->{{belongsToMany}}(Role::class)->{{withTimestamps}}();
+}',
+                'code_example' => 'Schema::create(\'role_user\', function (Blueprint $table) {
+    $table->foreignId(\'user_id\')->constrained()->cascadeOnDelete();
+    $table->foreignId(\'role_id\')->constrained()->cascadeOnDelete();
+    $table->timestamps();
+});',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Заполни вызов очереди с retries и backoff.',
+                'answer' => 'public свойства $tries и $backoff на классе Job настраивают количество попыток и задержку между ними.',
+                'cloze_text' => 'class ProcessOrder implements ShouldQueue {
+    public int ${{tries}} = 5;
+    public array ${{backoff}} = [10, 30, 120];
+}',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Заполни scope для активных пользователей и его использование.',
+                'answer' => 'Локальный scope - метод scopeXxx, доступный без префикса через query builder.',
+                'cloze_text' => 'public function {{scopeActive}}(Builder $q): Builder {
+    return $q->where("active", {{true}});
+}
+// usage:
+User::{{active}}()->get();',
+            ],
+
+            // ===== Type-in =====
+            [
+                'category' => 'Laravel',
+                'question' => 'Команда artisan, очищающая весь app-cache (config, route, view, events).',
+                'answer' => 'optimize:clear объединяет config:clear, route:clear, view:clear, event:clear, cache:clear.',
+                'short_answer' => 'optimize:clear',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Метод query builder для агрегата по выбранному столбцу с округлением вниз.',
+                'answer' => 'Метод avg возвращает среднее значение. Похожие: sum, max, min, count.',
+                'short_answer' => 'avg',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Хелпер, который возвращает singleton-экземпляр приложения.',
+                'answer' => 'app() без аргументов вернёт Illuminate\\Foundation\\Application; с аргументом - резолвит зависимость из контейнера.',
+                'short_answer' => 'app',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Метод модели, перезагружающий её атрибуты из БД.',
+                'answer' => 'fresh() возвращает новый экземпляр, refresh() перезаписывает текущий и возвращает $this.',
+                'short_answer' => 'refresh',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Фасад для отправки события в очередь broadcast.',
+                'answer' => 'event(new SomethingHappened(...)) публикует событие; для broadcasting класс реализует ShouldBroadcast.',
+                'short_answer' => 'event',
+            ],
+
+            // ===== Assemble =====
+            [
+                'category' => 'Laravel',
+                'question' => 'Собери Eloquent-запрос: всех активных юзеров, упорядоченных по имени.',
+                'answer' => 'Цепочка scope/where с orderBy и завершающим get возвращает Collection.',
+                'assemble_chunks' => ['User::', "where('active', 1)", '->', "orderBy('name')", '->', 'get()'],
+                'code_example' => 'User::where(\'active\', 1)->orderBy(\'name\')->get();',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Собери eager load с ограничением relations.',
+                'answer' => 'with принимает имя relation или массив. Замыкание доращивает запрос на загружаемом отношении.',
+                'assemble_chunks' => [
+                    'Post::',
+                    "with(['comments' => fn(\$q) => \$q->latest()])",
+                    '->',
+                    'paginate(20)',
+                ],
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Собери транзакцию с retry на 3 попытки.',
+                'answer' => 'DB::transaction(closure, attempts) сам ретраит на deadlock-исключениях.',
+                'assemble_chunks' => [
+                    'DB::',
+                    'transaction(function () {',
+                    '    Account::lockForUpdate()->find($id);',
+                    '    // ...',
+                    '}, 3)',
+                ],
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Собери диспатч джобы в очередь high с задержкой 30 секунд.',
+                'answer' => 'onQueue выбирает очередь, delay - отложенный запуск.',
+                'assemble_chunks' => [
+                    'ProcessOrder::',
+                    'dispatch($order)',
+                    '->',
+                    "onQueue('high')",
+                    '->',
+                    'delay(now()->addSeconds(30))',
+                ],
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Собери rate-limited маршрут в группе.',
+                'answer' => 'middleware throttle принимает имя именованного limiter или формат N,M.',
+                'assemble_chunks' => [
+                    'Route::',
+                    "middleware(['auth', 'throttle:60,1'])",
+                    '->',
+                    'group(function () {',
+                    '    Route::get(\'/profile\', ProfileController::class);',
+                    '})',
+                ],
             ],
         ];
     }

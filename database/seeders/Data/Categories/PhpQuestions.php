@@ -5,7 +5,7 @@ namespace Database\Seeders\Data\Categories;
 class PhpQuestions
 {
     /**
-     * @return array<int, array{category: string, question: string, answer: string, code_example: ?string, code_language: ?string}>
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, cloze_text?: ?string, short_answer?: ?string, assemble_chunks?: ?array<int, string>}>
      */
     public static function all(): array
     {
@@ -2617,6 +2617,124 @@ pm.max_requests = 1000',
                 'answer' => 'Preloading загружает указанные файлы в opcache при старте PHP-FPM master-процесса и навсегда держит их в памяти. Эти классы доступны во всех воркерах без файловой проверки, что даёт +5-15% к скорости старта запроса. Ограничения: при изменении preloaded-файла нужен полный рестарт FPM, нельзя использовать с runtime-кодом, скрипт исполняется в контексте master.',
                 'code_example' => null,
                 'code_language' => null,
+            ],
+
+            // ===== Cloze =====
+            [
+                'category' => 'PHP',
+                'question' => 'Заполни сигнатуру readonly value-object Money с конструктором.',
+                'answer' => 'final readonly class фиксирует иммутабельность всех нестатических свойств. Promoted parameters позволяют объявить и инициализировать поля одной строкой.',
+                'cloze_text' => 'final {{readonly}} class Money {
+    public function __construct(
+        public {{int}} $amount,
+        public string $currency,
+    ) {}
+}',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Заполни match-выражение для типов HTTP-методов.',
+                'answer' => 'match сравнивает строго через === и обязан покрывать все ветки, иначе бросит UnhandledMatchError.',
+                'cloze_text' => '$cmd = {{match}}($method) {
+    "GET", "HEAD" => "read",
+    "POST", "PUT", "PATCH" => "write",
+    "DELETE" => "delete",
+    {{default}} => throw new InvalidArgumentException(),
+};',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Заполни generator для чтения большого CSV.',
+                'answer' => 'yield делает функцию ленивым итератором: на каждой итерации читается одна строка, а не весь файл целиком.',
+                'cloze_text' => 'function readCsv(string $path): {{Generator}} {
+    $h = fopen($path, "r");
+    while (($row = fgetcsv($h)) !== false) {
+        {{yield}} $row;
+    }
+    fclose($h);
+}',
+            ],
+
+            // ===== Type-in =====
+            [
+                'category' => 'PHP',
+                'question' => 'Функция PHP для разбиения строки на массив по разделителю.',
+                'answer' => 'explode($delimiter, $string, $limit = PHP_INT_MAX) - обратная к implode/join.',
+                'short_answer' => 'explode',
+                'code_example' => '$parts = explode(",", "a,b,c"); // ["a","b","c"]',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Функция, склеивающая массив строк в одну строку.',
+                'answer' => 'implode($glue, $array). Алиас - join.',
+                'short_answer' => 'implode',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Функция, возвращающая количество элементов массива.',
+                'answer' => 'count($array, $mode = COUNT_NORMAL). Алиас - sizeof.',
+                'short_answer' => 'count',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Функция для проверки существования ключа в массиве (не путать с isset).',
+                'answer' => 'array_key_exists возвращает true даже если значение под ключом - null, в отличие от isset.',
+                'short_answer' => 'array_key_exists',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Функция для сортировки ассоциативного массива по значениям с сохранением ключей.',
+                'answer' => 'asort сортирует по значению по возрастанию и сохраняет ассоциативные ключи. arsort - то же по убыванию.',
+                'short_answer' => 'asort',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'SPL-класс для очереди FIFO с push/pop в обоих концах.',
+                'answer' => 'SplDoublyLinkedList - основа для SplQueue (FIFO) и SplStack (LIFO).',
+                'short_answer' => 'SplDoublyLinkedList',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Функция для безопасного сравнения строк, устойчивая к timing-атакам.',
+                'answer' => 'hash_equals($known, $user) выполняется за константное время и применяется при сравнении токенов/HMAC.',
+                'short_answer' => 'hash_equals',
+            ],
+
+            // ===== Assemble =====
+            [
+                'category' => 'PHP',
+                'question' => 'Собери цепочку Collection: уникальные emails из активных юзеров.',
+                'answer' => 'Coллекции - fluent. filter, pluck, unique, values образуют ленивую цепочку (на eager при collect).',
+                'assemble_chunks' => [
+                    'collect($users)',
+                    '->',
+                    'filter(fn($u) => $u->active)',
+                    '->',
+                    "pluck('email')",
+                    '->',
+                    'unique()',
+                    '->',
+                    'values()',
+                    '->',
+                    'all()',
+                ],
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Собери try/catch для нескольких типов исключений.',
+                'answer' => 'Multi-catch (PHP 8.0): TypeA|TypeB $e - общий блок для нескольких типов.',
+                'assemble_chunks' => [
+                    'try {',
+                    '    $client->send($request);',
+                    '} catch (',
+                    'NetworkException ',
+                    '| ',
+                    'TimeoutException ',
+                    '$e) {',
+                    '    report($e);',
+                    '}',
+                ],
             ],
         ];
     }

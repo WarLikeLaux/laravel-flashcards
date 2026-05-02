@@ -5,7 +5,7 @@ namespace Database\Seeders\Data\Categories;
 class OopQuestions
 {
     /**
-     * @return array<int, array{category: string, question: string, answer: string, code_example: ?string, code_language: ?string}>
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, cloze_text?: ?string, short_answer?: ?string, assemble_chunks?: ?array<int, string>}>
      */
     public static function all(): array
     {
@@ -2261,6 +2261,34 @@ class NotificationService {
 }
 class SmsChannel implements Channel { /* low-level */ }',
                 'code_language' => 'php',
+            ],
+
+            // ===== Cloze =====
+            [
+                'category' => 'ООП',
+                'question' => 'Заполни декларацию интерфейса и реализации для команды.',
+                'answer' => 'interface вводит контракт, implements обязывает класс реализовать все методы.',
+                'cloze_text' => '{{interface}} Command {
+    public function execute(): void;
+}
+
+class SendEmail {{implements}} Command {
+    public function execute(): void { /* ... */ }
+}',
+            ],
+
+            // ===== Assemble =====
+            [
+                'category' => 'ООП',
+                'question' => 'Собери класс с конструктором и приватным свойством.',
+                'answer' => 'Constructor property promotion (PHP 8) объявляет и инициализирует свойство одной строкой.',
+                'assemble_chunks' => [
+                    'final class OrderTotal {',
+                    '    public function __construct(',
+                    '        private readonly Money $amount,',
+                    '    ) {}',
+                    '}',
+                ],
             ],
         ];
     }
