@@ -2619,6 +2619,43 @@ pm.max_requests = 1000',
                 'code_language' => null,
             ],
 
+            // ===== Краткие Q/A =====
+            [
+                'category' => 'PHP',
+                'question' => 'В чём разница между == и === в PHP?',
+                'answer' => '== сравнивает значения с приведением типов, === сравнивает значения и типы строго без приведения.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Чем readonly свойство отличается от обычного private?',
+                'answer' => 'readonly запрещает изменение свойства после инициализации в конструкторе. Доступно с PHP 8.1, на уровне класса с PHP 8.2.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое generator и yield?',
+                'answer' => 'Generator - функция, возвращающая Iterator через yield, не материализуя весь массив в памяти. Подходит для ленивых последовательностей и потоковой обработки.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Чем отличаются include, include_once, require, require_once?',
+                'answer' => 'require падает с fatal error если файла нет, include даёт warning. *_once гарантируют единичную загрузку файла за процесс.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое traits и для чего они нужны?',
+                'answer' => 'Traits - механизм горизонтального переиспользования кода. Решают ограничение единичного наследования, позволяя подмешивать методы и свойства в классы.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Как работает spl_autoload_register и PSR-4?',
+                'answer' => 'spl_autoload_register регистрирует функцию автозагрузки классов. PSR-4 - стандарт маппинга namespace на пути файлов, реализуемый Composer-ом автоматически.',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое nullsafe-оператор ?->?',
+                'answer' => 'Сокращение цепочки вызовов: если левая часть null, цепочка возвращает null без NullPointerException. $a?->b()?->c.',
+            ],
+
             // ===== Cloze =====
             [
                 'category' => 'PHP',

@@ -2032,6 +2032,78 @@ DB::transaction(function () use ($from, $to, $sum) {
                 'code_language' => 'php',
             ],
 
+            // ===== Краткие Q/A =====
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличается Service Provider от Middleware?',
+                'answer' => 'Service Provider регистрирует биндинги и бутстрапит сервисы при старте приложения. Middleware фильтрует HTTP-запросы по конвейеру до и после контроллера.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Eloquent ORM и Active Record?',
+                'answer' => 'Eloquent - реализация паттерна Active Record: одна модель = одна таблица, экземпляр модели = строка, методы модели инкапсулируют CRUD и связи.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем hasOne отличается от belongsTo?',
+                'answer' => 'hasOne - обратная сторона связи "один-к-одному" со стороны родителя (FK на дочерней). belongsTo - со стороны дочерней (FK у себя).',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое N+1 проблема и как её решать в Eloquent?',
+                'answer' => 'N+1 - N дополнительных запросов на связанные записи при итерации. Решается eager loading через with(), withCount() или предзагрузкой через load().',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличаются queue jobs от events?',
+                'answer' => 'Job - единица фоновой работы, ставится в очередь и выполняется воркером. Event - синхронное или асинхронное уведомление с N подписчиками-листенерами.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что делает middleware throttle?',
+                'answer' => 'Ограничивает число запросов с одного клиента за период (rate limiting), используя кэш для счётчиков. Например, throttle:60,1 - 60 запросов в минуту.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличается Request от FormRequest?',
+                'answer' => 'FormRequest - наследник Request с валидацией и авторизацией в отдельном классе. Валидация запускается до контроллера, ошибки автоматически возвращаются.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Route Model Binding?',
+                'answer' => 'Автоматический резолв модели по параметру роута. Implicit - по типу аргумента и имени параметра, explicit - через Route::model или Route::bind.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Policy и Gate?',
+                'answer' => 'Gate - замыкание для проверки права действия. Policy - класс, группирующий правила доступа для конкретной модели. Используются через can()/authorize().',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличается soft delete от обычного delete?',
+                'answer' => 'Soft delete устанавливает deleted_at вместо физического удаления. Записи скрываются из выборок, восстанавливаются через restore(), удаляются окончательно через forceDelete().',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое observers в Eloquent?',
+                'answer' => 'Класс с обработчиками событий жизненного цикла модели (creating, created, updating, deleted и т.д.). Регистрируется через ObservedBy-атрибут или Model::observe.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Зачем нужен php artisan optimize?',
+                'answer' => 'Кэширует конфиг, роуты, события и вьюхи в одиночные файлы для production. Ускоряет загрузку фреймворка, исключая парсинг при каждом запросе.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое database transaction и как использовать в Laravel?',
+                'answer' => 'Атомарная группа SQL-операций, либо все коммитятся, либо все откатываются. В Laravel - DB::transaction(closure) или явные beginTransaction/commit/rollBack.',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличаются session, cookie и cache в Laravel?',
+                'answer' => 'Cookie - данные у клиента. Session - серверное состояние пользователя, обычно идентифицируется cookie. Cache - общее key-value-хранилище без привязки к пользователю.',
+            ],
+
             // ===== Cloze =====
             [
                 'category' => 'Laravel',
