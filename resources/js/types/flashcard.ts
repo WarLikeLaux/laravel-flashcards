@@ -14,6 +14,8 @@ export type Flashcard = {
     correct_modes: string[] | null;
     required_correct: number;
     is_learned: boolean;
+    next_review_at: string | null;
+    srs_step: number;
 };
 
 export type FlashcardStats = {

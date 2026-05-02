@@ -17,7 +17,8 @@ class FlashcardController extends Controller
         'question', 'answer',
         'code_example', 'code_language',
         'cloze_text', 'short_answer', 'assemble_chunks',
-        'correct_streak', 'correct_modes', 'required_correct', 'is_learned',
+        'correct_streak', 'correct_modes', 'required_correct',
+        'is_learned', 'next_review_at', 'srs_step',
     ];
 
     public function index(Request $request): Response
@@ -105,6 +106,8 @@ class FlashcardController extends Controller
             'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => false,
             'studied' => false,
+            'next_review_at' => null,
+            'srs_step' => 0,
         ]);
 
         return redirect()->route('flashcards.index');

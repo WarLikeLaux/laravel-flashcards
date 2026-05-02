@@ -17,6 +17,7 @@ class StudyController extends Controller
         'code_example', 'code_language',
         'cloze_text', 'short_answer', 'assemble_chunks',
         'correct_streak', 'correct_modes', 'required_correct',
+        'is_learned', 'next_review_at', 'srs_step',
     ];
 
     private const MODES = [

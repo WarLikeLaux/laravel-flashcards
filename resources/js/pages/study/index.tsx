@@ -172,14 +172,24 @@ function Wrapper({
                                         ),
                                     )}
                                 </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className="bg-background/60 font-mono tabular-nums"
-                                    title="Различных режимов с правильным ответом"
-                                >
-                                    {flashcard.correct_modes?.length ?? 0}/
-                                    {flashcard.required_correct}
-                                </Badge>
+                                {flashcard.is_learned ? (
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-background/60 tabular-nums"
+                                        title="Повторение по SRS"
+                                    >
+                                        повтор {flashcard.srs_step + 1}/4
+                                    </Badge>
+                                ) : (
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-background/60 font-mono tabular-nums"
+                                        title="Различных режимов с правильным ответом"
+                                    >
+                                        {flashcard.correct_modes?.length ?? 0}/
+                                        {flashcard.required_correct}
+                                    </Badge>
+                                )}
                             </>
                         )}
                     </div>
