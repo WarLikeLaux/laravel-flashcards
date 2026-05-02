@@ -10,7 +10,7 @@ it('renders the index page with cards and stats', function (): void {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('flashcards/index')
-            ->has('flashcards', 4)
+            ->has('flashcards.data', 4)
             ->has('categoryStats')
             ->where('filters.q', '')
             ->where('filters.status', 'all')
@@ -28,8 +28,8 @@ it('filters cards by status=due', function (): void {
     $this->get(route('flashcards.index', ['status' => 'due']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('flashcards', 1)
-            ->where('flashcards.0.question', 'Q1')
+            ->has('flashcards.data', 1)
+            ->where('flashcards.data.0.question', 'Q1')
             ->where('filters.status', 'due')
         );
 });
@@ -41,8 +41,8 @@ it('filters cards by status=learned', function (): void {
     $this->get(route('flashcards.index', ['status' => 'learned']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('flashcards', 1)
-            ->where('flashcards.0.question', 'Done')
+            ->has('flashcards.data', 1)
+            ->where('flashcards.data.0.question', 'Done')
         );
 });
 
@@ -54,7 +54,7 @@ it('filters cards by category', function (): void {
     $this->get(route('flashcards.index', ['category' => 'PHP']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('flashcards', 2)
+            ->has('flashcards.data', 2)
             ->where('filters.category', 'PHP')
         );
 });
@@ -72,15 +72,15 @@ it('searches by question, answer, category, short_answer', function (): void {
 
     $this->get(route('flashcards.index', ['q' => 'PSR']))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('flashcards', 1));
+        ->assertInertia(fn ($page) => $page->has('flashcards.data', 1));
 
     $this->get(route('flashcards.index', ['q' => 'implode']))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('flashcards', 1));
+        ->assertInertia(fn ($page) => $page->has('flashcards.data', 1));
 
     $this->get(route('flashcards.index', ['q' => 'array values']))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('flashcards', 1));
+        ->assertInertia(fn ($page) => $page->has('flashcards.data', 1));
 });
 
 it('returns category breakdown counts', function (): void {

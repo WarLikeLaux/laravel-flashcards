@@ -1,5 +1,7 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import {
+    ChevronLeft,
+    ChevronRight,
     GraduationCap,
     Layers,
     MoreHorizontal,
@@ -36,7 +38,7 @@ import { categoryStyle } from '@/lib/category-colors';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import study from '@/routes/study';
-import type { Flashcard, FlashcardStats } from '@/types';
+import type { Flashcard, FlashcardStats, Paginated } from '@/types';
 
 type CategoryStat = {
     name: string;
@@ -51,7 +53,7 @@ type Filters = {
 };
 
 type Props = {
-    flashcards: Flashcard[];
+    flashcards: Paginated<Flashcard>;
     stats: FlashcardStats;
     categoryStats: CategoryStat[];
     filters: Filters;
@@ -200,14 +202,17 @@ export default function FlashcardsIndex({
                     )}
                 </div>
 
-                {cards.length === 0 ? (
+                {cards.data.length === 0 ? (
                     <EmptyResult hasFilters={hasFilters} />
                 ) : (
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {cards.map((card) => (
-                            <FlashcardCard key={card.id} card={card} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {cards.data.map((card) => (
+                                <FlashcardCard key={card.id} card={card} />
+                            ))}
+                        </div>
+                        <Pagination page={cards} filters={filters} />
+                    </>
                 )}
             </div>
         </>
@@ -383,6 +388,172 @@ function CategoryChip({
             </div>
         </button>
     );
+}
+
+function Pagination({
+    page,
+    filters,
+}: {
+    page: Paginated<Flashcard>;
+    filters: Filters;
+}) {
+    if (page.last_page <= 1) {
+        return null;
+    }
+
+    const pages = pageRange(page.current_page, page.last_page);
+    const buildHref = (n: number) => {
+        const params: Record<string, string> = {};
+        if (filters.q !== '') {
+            params.q = filters.q;
+        }
+        if (filters.status !== 'all') {
+            params.status = filters.status;
+        }
+        if (filters.category !== 'all' && filters.category !== '') {
+            params.category = filters.category;
+        }
+        if (n > 1) {
+            params.page = String(n);
+        }
+        const qs = new URLSearchParams(params).toString();
+        return flashcards.index().url + (qs ? `?${qs}` : '');
+    };
+
+    return (
+        <nav className="mt-2 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <p className="text-xs text-muted-foreground tabular-nums">
+                {page.from ?? 0}–{page.to ?? 0} из {page.total}
+            </p>
+            <div className="flex items-center gap-1">
+                <PageLink
+                    href={
+                        page.current_page > 1
+                            ? buildHref(page.current_page - 1)
+                            : null
+                    }
+                    aria-label="Назад"
+                >
+                    <ChevronLeft className="size-4" />
+                </PageLink>
+                {pages.map((p, i) =>
+                    p === 'ellipsis' ? (
+                        <span
+                            key={`e-${i}`}
+                            className="px-1 text-sm text-muted-foreground"
+                        >
+                            …
+                        </span>
+                    ) : (
+                        <PageNumber
+                            key={p}
+                            href={buildHref(p)}
+                            number={p}
+                            active={p === page.current_page}
+                        />
+                    ),
+                )}
+                <PageLink
+                    href={
+                        page.current_page < page.last_page
+                            ? buildHref(page.current_page + 1)
+                            : null
+                    }
+                    aria-label="Вперёд"
+                >
+                    <ChevronRight className="size-4" />
+                </PageLink>
+            </div>
+        </nav>
+    );
+}
+
+function PageLink({
+    href,
+    children,
+    ...rest
+}: {
+    href: string | null;
+    children: React.ReactNode;
+} & React.AriaAttributes) {
+    const className = cn(
+        'inline-flex h-8 min-w-8 items-center justify-center rounded-md border bg-background px-2 text-sm transition-colors',
+        href
+            ? 'hover:bg-accent hover:text-accent-foreground'
+            : 'pointer-events-none opacity-40',
+    );
+
+    if (!href) {
+        return (
+            <span className={className} {...rest}>
+                {children}
+            </span>
+        );
+    }
+
+    return (
+        <Link
+            href={href}
+            preserveScroll={false}
+            preserveState
+            className={className}
+            {...rest}
+        >
+            {children}
+        </Link>
+    );
+}
+
+function PageNumber({
+    href,
+    number,
+    active,
+}: {
+    href: string;
+    number: number;
+    active: boolean;
+}) {
+    return (
+        <Link
+            href={href}
+            preserveScroll={false}
+            preserveState
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+                'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm tabular-nums transition-colors',
+                active
+                    ? 'border bg-foreground text-background'
+                    : 'border bg-background hover:bg-accent hover:text-accent-foreground',
+            )}
+        >
+            {number}
+        </Link>
+    );
+}
+
+function pageRange(current: number, last: number): (number | 'ellipsis')[] {
+    if (last <= 7) {
+        return Array.from({ length: last }, (_, i) => i + 1);
+    }
+
+    const result: (number | 'ellipsis')[] = [1];
+    const start = Math.max(2, current - 1);
+    const end = Math.min(last - 1, current + 1);
+
+    if (start > 2) {
+        result.push('ellipsis');
+    }
+
+    for (let i = start; i <= end; i++) {
+        result.push(i);
+    }
+
+    if (end < last - 1) {
+        result.push('ellipsis');
+    }
+
+    result.push(last);
+    return result;
 }
 
 function EmptyResult({ hasFilters }: { hasFilters: boolean }) {

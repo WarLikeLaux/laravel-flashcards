@@ -48,7 +48,7 @@ class FlashcardController extends Controller
         }
 
         return Inertia::render('flashcards/index', [
-            'flashcards' => $query->latest('id')->get(self::FIELDS),
+            'flashcards' => $query->latest('id')->paginate(24, self::FIELDS)->withQueryString(),
             'stats' => $this->stats(),
             'categoryStats' => $this->categoryStats(),
             'filters' => [
