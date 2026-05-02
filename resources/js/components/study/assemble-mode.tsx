@@ -143,6 +143,7 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                     <AnswerForm
                         flashcardId={flashcard.id}
                         result={isCorrect ? 'correct' : 'incorrect'}
+                        mode="assemble"
                         label={isCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'}
                         variant={isCorrect ? 'default' : 'destructive'}
                         icon={isCorrect ? <Check /> : <X />}

@@ -113,6 +113,7 @@ export function TypeInMode({ flashcard }: { flashcard: Flashcard }) {
                     <AnswerForm
                         flashcardId={flashcard.id}
                         result={isCorrect ? 'correct' : 'incorrect'}
+                        mode="type_in"
                         label={isCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'}
                         variant={isCorrect ? 'default' : 'destructive'}
                         icon={isCorrect ? <Check /> : <X />}

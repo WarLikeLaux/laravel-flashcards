@@ -1,0 +1,154 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Database;
+
+class Indexes
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Базы данных',
+                'question' => 'Зачем нужны индексы и что это такое простыми словами?',
+                'answer' => 'Индекс - это вспомогательная структура данных для ускорения поиска по таблице. Простыми словами: представь толстую книгу - чтобы найти главу про пингвинов, ты идёшь не на каждую страницу, а в алфавитный указатель в конце книги, видишь "Пингвины - стр. 524" и сразу открываешь нужную страницу. Индекс - это и есть тот алфавитный указатель в конце. Минусы: индексы занимают место и замедляют INSERT/UPDATE/DELETE.',
+                'code_example' => <<<'SQL'
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 1,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как устроен B-tree индекс?',
+                'answer' => 'B-tree (balanced tree) - сбалансированное дерево, где данные отсортированы и поиск идёт за O(log n). Каждый узел содержит несколько ключей и указатели на детей; листья связаны для эффективного range-поиска. Это самый универсальный тип индекса по умолчанию: подходит для =, <, >, BETWEEN, ORDER BY, LIKE "pref%". PostgreSQL и MySQL по умолчанию создают именно B-tree.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 3,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое hash-индекс?',
+                'answer' => 'Hash-индекс хранит хэш ключа и указатель на строку. Поиск по равенству очень быстрый - O(1), но не работает для диапазонов (<, >, BETWEEN) и сортировки. В PostgreSQL hash-индексы есть, но используются редко. В Redis и memcached - основной механизм.',
+                'code_example' => <<<'SQL'
+-- PostgreSQL
+CREATE INDEX idx_users_email ON users USING hash(email);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 3,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое GIN и GiST индексы (PostgreSQL)?',
+                'answer' => 'GIN (Generalized Inverted Index) - инвертированный индекс, хорош для значений, содержащих несколько подзначений: массивы, JSONB, full-text search. GiST (Generalized Search Tree) - универсальное дерево, подходит для геоданных (PostGIS), range types, ближайших соседей. GIN быстрее на чтение, GiST на запись.',
+                'code_example' => <<<'SQL'
+-- GIN для full-text search
+CREATE INDEX idx_articles_tsv ON articles USING gin(to_tsvector('russian', body));
+
+-- GIN для JSONB
+CREATE INDEX idx_data ON events USING gin(data);
+
+-- GiST для геометрии
+CREATE INDEX idx_locations ON places USING gist(geom);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое composite (составной) индекс?',
+                'answer' => 'Composite-индекс - индекс по нескольким столбцам. Порядок столбцов важен! Индекс (a, b, c) ускоряет запросы по a, по (a, b), по (a, b, c), но НЕ по b или по c отдельно. Это правило "leftmost prefix". Используется для частых комбинаций условий.',
+                'code_example' => <<<'SQL'
+CREATE INDEX idx_orders_user_status ON orders(user_id, status, created_at);
+
+-- Этот запрос использует индекс
+SELECT * FROM orders WHERE user_id = 1 AND status = 'paid';
+
+-- А этот - нет (нет user_id впереди)
+SELECT * FROM orders WHERE status = 'paid';
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 3,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое partial index?',
+                'answer' => 'Partial index - индекс по подмножеству строк, удовлетворяющих условию WHERE. Меньше по размеру, быстрее обновляется, применяется только к подходящим запросам. Полезен, когда часто фильтруют по конкретному значению (например, active = true).',
+                'code_example' => <<<'SQL'
+-- Индексируем только активных пользователей
+CREATE INDEX idx_users_active ON users(email) WHERE active = true;
+
+-- Только незавершённые заказы
+CREATE INDEX idx_orders_pending ON orders(created_at) WHERE status = 'pending';
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое expression (functional) index?',
+                'answer' => 'Expression index - индекс по результату выражения, а не по самому столбцу. Помогает запросам, где в WHERE используется функция от столбца. Без такого индекса БД не может использовать обычный индекс на столбце.',
+                'code_example' => <<<'SQL'
+-- Чтобы поиск по нижнему регистру использовал индекс
+CREATE INDEX idx_users_lower_email ON users(LOWER(email));
+
+SELECT * FROM users WHERE LOWER(email) = 'ivan@mail.ru';
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое covering index и INCLUDE?',
+                'answer' => 'Covering index - индекс, который содержит все столбцы, нужные запросу, так что БД отвечает прямо из индекса, не обращаясь к таблице (index-only scan). В PostgreSQL и SQL Server есть синтаксис INCLUDE - дополнительные столбцы хранятся в индексе как payload, не участвуют в сортировке.',
+                'code_example' => <<<'SQL'
+-- email - ключ индекса, name и age - включенные
+CREATE INDEX idx_users_email_inc ON users(email) INCLUDE (name, age);
+
+-- Этот запрос - index-only scan
+SELECT name, age FROM users WHERE email = 'ivan@mail.ru';
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Когда индекс не используется?',
+                'answer' => 'Индекс не работает, когда: применена функция к столбцу (WHERE LOWER(email) = ...) - нужен expression index; LIKE с ведущим % (WHERE name LIKE "%abc") - нет prefix; столбец в выражении (WHERE age + 1 = 30); неподходящий тип (CAST); очень малая селективность (большая часть таблицы - быстрее seq scan); статистика устарела (нужен ANALYZE).',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое Index Scan и Sequential Scan?',
+                'answer' => 'Sequential Scan (seq scan) - полное сканирование таблицы, чтение строк подряд. Подходит для маленьких таблиц или когда возвращается большая доля строк. Index Scan - чтение через индекс, идёт по нему, потом по указателям к таблице. Бывает Index Only Scan (когда все нужные данные есть в индексе) и Bitmap Index Scan (собирает битмап позиций, потом за один проход читает таблицу). Какой использовать решает планировщик.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое selectivity и cardinality?',
+                'answer' => 'Cardinality - количество уникальных значений в столбце. Selectivity - доля строк, удовлетворяющих условию (от 0 до 1). Чем выше cardinality и ниже selectivity (мало строк подходит) - тем эффективнее индекс. Индекс на bool-столбце обычно бесполезен (cardinality = 2). Индекс на email - очень эффективен.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
+        ];
+    }
+}

@@ -205,5 +205,7 @@ it('resets progress for all cards', function (): void {
         ->assertRedirect(route('flashcards.index'));
 
     expect(Flashcard::query()->where('is_learned', true)->count())->toBe(0);
-    expect(Flashcard::query()->where('required_correct', 1)->count())->toBe(3);
+    expect(Flashcard::query()
+        ->where('required_correct', \App\Models\Flashcard::LEARN_THRESHOLD)
+        ->count())->toBe(3);
 });

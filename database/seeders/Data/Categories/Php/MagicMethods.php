@@ -1,0 +1,85 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Php;
+
+class MagicMethods
+{
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'PHP',
+                'question' => 'Какие магические методы есть в PHP?',
+                'answer' => 'Магические методы вызываются автоматически в специальных ситуациях, имеют префикс __. Основные: __construct/__destruct, __get/__set/__isset/__unset (для несуществующих свойств), __call/__callStatic (для несуществующих методов), __toString (приведение к строке), __invoke (вызов объекта как функции), __clone (после клонирования), __serialize/__unserialize, __debugInfo (для var_dump). Минус: непрозрачны, тяжелее анализировать.',
+                'code_example' => '<?php
+class Container {
+    private array $data = [];
+
+    public function __get(string $name) {
+        return $this->data[$name] ?? null;
+    }
+
+    public function __set(string $name, $value): void {
+        $this->data[$name] = $value;
+    }
+
+    public function __isset(string $name): bool {
+        return isset($this->data[$name]);
+    }
+
+    public function __call(string $method, array $args) {
+        echo "Вызван несуществующий: $method";
+    }
+
+    public function __toString(): string {
+        return json_encode($this->data);
+    }
+
+    public function __invoke(string $key) {
+        return $this->data[$key] ?? null;
+    }
+}
+
+$c = new Container();
+$c->name = "Иван";    // __set
+echo $c->name;        // __get
+echo $c;              // __toString
+echo $c("name");      // __invoke',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.magic_methods',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Как работает __invoke и зачем он нужен?',
+                'answer' => '__invoke позволяет вызывать объект как функцию. Простыми словами: добавляешь метод __invoke - и можно писать $obj() вместо $obj->method(). Полезно для callable-объектов: handlers, action-классы, single-action invokables в Laravel, middleware. Объект с __invoke считается callable, его можно передавать туда, где ожидается функция.',
+                'code_example' => '<?php
+class Multiplier {
+    public function __construct(private int $factor) {}
+
+    public function __invoke(int $x): int {
+        return $x * $this->factor;
+    }
+}
+
+$double = new Multiplier(2);
+echo $double(5);  // 10 - вызвали как функцию
+
+// Передача в функции, ожидающие callable
+$nums = [1, 2, 3, 4];
+$result = array_map($double, $nums);
+// [2, 4, 6, 8]
+
+// Паттерн Single Action в Laravel
+class CreateUserAction {
+    public function __invoke(array $data): User {
+        return User::create($data);
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.magic_methods',
+            ],
+        ];
+    }
+}

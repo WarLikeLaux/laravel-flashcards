@@ -67,24 +67,37 @@ it('builds multiple_choice options including the right answer', function (): voi
         ->toContain('multiple_choice');
 });
 
-it('marks a card correct via the answer endpoint', function (): void {
+it('marks a card correct via the answer endpoint after three distinct modes', function (): void {
     $card = Flashcard::factory()->create();
 
-    $this->post(route('study.answer', $card), ['result' => 'correct'])
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'reveal'])
         ->assertRedirect(route('study.show'));
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'true_false']);
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'multiple_choice']);
 
     expect($card->fresh()->is_learned)->toBeTrue();
 });
 
-it('marks a card incorrect and bumps required_correct', function (): void {
+it('does not mark a card learned when same mode repeats', function (): void {
     $card = Flashcard::factory()->create();
 
-    $this->post(route('study.answer', $card), ['result' => 'incorrect'])
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'reveal']);
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'reveal']);
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'reveal']);
+
+    expect($card->fresh()->is_learned)->toBeFalse();
+});
+
+it('marks a card incorrect and clears correct_modes', function (): void {
+    $card = Flashcard::factory()->create();
+
+    $this->post(route('study.answer', $card), ['result' => 'correct', 'mode' => 'reveal']);
+    $this->post(route('study.answer', $card), ['result' => 'incorrect', 'mode' => 'true_false'])
         ->assertRedirect(route('study.show'));
 
     $fresh = $card->fresh();
     expect($fresh->is_learned)->toBeFalse()
-        ->and($fresh->required_correct)->toBe(2);
+        ->and($fresh->correct_modes)->toBe([]);
 });
 
 it('rejects an unknown result value', function (): void {
@@ -151,7 +164,7 @@ it('builds a matching payload when 4+ cards in a category have short_answer', fu
     expect($matched)->toBeTrue();
 });
 
-it('marks each pair correctly via matching endpoint', function (): void {
+it('records matching answers correctly per pair', function (): void {
     $a = Flashcard::factory()->create();
     $b = Flashcard::factory()->create();
 
@@ -162,9 +175,10 @@ it('marks each pair correctly via matching endpoint', function (): void {
         ],
     ])->assertRedirect(route('study.show'));
 
-    expect($a->fresh()->is_learned)->toBeTrue()
-        ->and($b->fresh()->is_learned)->toBeFalse()
-        ->and($b->fresh()->required_correct)->toBe(2);
+    expect($a->fresh()->correct_modes)->toBe(['matching'])
+        ->and($a->fresh()->is_learned)->toBeFalse()
+        ->and($b->fresh()->correct_modes)->toBe([])
+        ->and($b->fresh()->is_learned)->toBeFalse();
 });
 
 it('rejects matching payload without pairs', function (): void {

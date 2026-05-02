@@ -20,6 +20,8 @@ import type { Flashcard } from '@/types';
 
 type FormData = {
     category: string;
+    topic: string;
+    difficulty: string;
     question: string;
     answer: string;
     code_example: string;
@@ -39,6 +41,8 @@ type Props = {
 export function FlashcardForm({ initial, mode, submitLabel }: Props) {
     const form = useForm<FormData>({
         category: initial?.category ?? '',
+        topic: initial?.topic ?? '',
+        difficulty: String(initial?.difficulty ?? 1),
         question: initial?.question ?? '',
         answer: initial?.answer ?? '',
         code_example: initial?.code_example ?? '',
@@ -56,8 +60,15 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
                 .map((s) => s.replace(/\s+$/u, ''))
                 .filter((s) => s.length > 0);
 
+            const difficulty = Math.max(
+                1,
+                Math.min(5, Number(data.difficulty) || 1),
+            );
+
             return {
                 category: data.category || null,
+                topic: data.topic || null,
+                difficulty,
                 question: data.question,
                 answer: data.answer,
                 code_example: data.code_example || null,
@@ -115,6 +126,46 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
                                 {form.errors.category}
                             </p>
                         )}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="topic">Подкатегория (topic)</Label>
+                            <Input
+                                id="topic"
+                                value={form.data.topic}
+                                onChange={(e) =>
+                                    form.setData('topic', e.target.value)
+                                }
+                                placeholder="php.basic_syntax"
+                                autoComplete="off"
+                                className="font-mono"
+                            />
+                            {form.errors.topic && (
+                                <p className="text-sm text-destructive">
+                                    {form.errors.topic}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="difficulty">Сложность 1–5</Label>
+                            <Input
+                                id="difficulty"
+                                type="number"
+                                min={1}
+                                max={5}
+                                value={form.data.difficulty}
+                                onChange={(e) =>
+                                    form.setData('difficulty', e.target.value)
+                                }
+                                className="font-mono tabular-nums"
+                            />
+                            {form.errors.difficulty && (
+                                <p className="text-sm text-destructive">
+                                    {form.errors.difficulty}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-2">

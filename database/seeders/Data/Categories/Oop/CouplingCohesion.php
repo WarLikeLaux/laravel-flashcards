@@ -1,0 +1,58 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Oop;
+
+class CouplingCohesion
+{
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.coupling_cohesion',
+                'difficulty' => 3,
+                'question' => 'Что такое Law of Demeter (закон Деметры)?',
+                'answer' => 'Закон Деметры (принцип минимального знания): объект должен взаимодействовать только с непосредственными "друзьями", не лазить через них к чужим объектам. Простыми словами: говорите только со своими ближайшими объектами. Признак нарушения - длинные цепочки $a->getB()->getC()->doSomething() (train wreck). Это создаёт сильную связность - изменения в C ломают код, который ничего о C не знал. Решение - дать $a метод, который сам обратится к C, инкапсулируя цепочку.',
+                'code_example' => '<?php
+// Плохо - нарушение Law of Demeter
+$user->getProfile()->getAddress()->getCity()->getName();
+
+// Хорошо - даём User метод, скрывающий внутренности
+class User
+{
+    public function cityName(): string
+    {
+        return $this->profile->cityName();
+    }
+}
+$user->cityName();',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.coupling_cohesion',
+                'difficulty' => 3,
+                'question' => 'Что такое принцип "Tell, Don\'t Ask"?',
+                'answer' => '"Tell, Don\'t Ask" - не спрашивай у объекта данные, чтобы потом принять решение - скажи ему сделать. Простыми словами: вместо "получить статус и проверить можно ли отменить" - "попроси заказ отменить себя". Это ведёт к более инкапсулированному коду: бизнес-логика живёт внутри объектов, а не размазана по сервисам. Тесно связан с Rich-моделью и Law of Demeter.',
+                'code_example' => '<?php
+// Ask - спрашиваем и решаем снаружи
+if ($order->getStatus() === \'new\' && $order->getTotal() > 0) {
+    $order->setStatus(\'paid\');
+}
+
+// Tell - говорим объекту что делать
+$order->markAsPaid();',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.coupling_cohesion',
+                'difficulty' => 3,
+                'question' => 'Что такое Coupling и Cohesion?',
+                'answer' => 'Coupling (связность, связанность) - степень зависимости одного модуля от другого. Чем сильнее coupling - тем труднее менять код, тестировать, переиспользовать. Стремимся к loose coupling (слабой связности). Cohesion (сплочённость) - насколько элементы внутри модуля связаны общей задачей. Высокая cohesion - модуль делает одно дело хорошо. Низкая - смесь несвязанных функций. Цель ООП: low coupling + high cohesion. Это коррелирует с SRP (cohesion) и DIP (coupling).',
+                'code_example' => null,
+                'code_language' => null,
+            ],
+        ];
+    }
+}

@@ -1,0 +1,252 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Database;
+
+class Partitioning
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое партиционирование (partitioning) простыми словами?',
+                'answer' => 'Партиционирование - разделение одной таблицы на несколько физических частей (партиций) внутри одной БД, прозрачно для приложения. Простыми словами: если шкаф переполнен, ты разделяешь содержимое по полкам - "одежда зимняя", "одежда летняя". Приложение видит один шкаф, а БД ищет только в нужной полке. Бывает range, list, hash. Преимущества: быстрее запросы (partition pruning), быстрее удаление старых данных (DROP PARTITION), отдельные индексы. Это НЕ шардирование - всё на одном сервере.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Range vs List vs Hash партиционирование?',
+                'answer' => 'Range - по диапазонам значений (часто даты): партиция за каждый месяц. Удобно для time-series данных. List - по списку явных значений (по странам, по статусам). Hash - по хешу ключа, равномерно. Range и List лучше когда данные имеют естественные группы; hash - для равномерного распределения по партициям без логических групп.',
+                'code_example' => <<<'SQL'
+-- PostgreSQL Range Partitioning
+CREATE TABLE events (
+    id BIGSERIAL,
+    occurred_at TIMESTAMP NOT NULL,
+    payload JSONB
+) PARTITION BY RANGE (occurred_at);
+
+CREATE TABLE events_2024_01 PARTITION OF events
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+
+CREATE TABLE events_2024_02 PARTITION OF events
+    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
+-- List
+CREATE TABLE users PARTITION BY LIST (country);
+CREATE TABLE users_ru PARTITION OF users FOR VALUES IN ('RU', 'BY', 'KZ');
+CREATE TABLE users_us PARTITION OF users FOR VALUES IN ('US', 'CA');
+
+-- Hash
+CREATE TABLE logs PARTITION BY HASH (user_id);
+CREATE TABLE logs_0 PARTITION OF logs FOR VALUES WITH (modulus 4, remainder 0);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Чем B-tree индекс отличается от Hash и от GIN, и в каких случаях выбирать GIN?',
+                'answer' => 'B-tree - упорядоченное дерево, поддерживает =, <, >, BETWEEN, ORDER BY, LIKE \'prefix%\'. Hash - только равенство, в Postgres с PG10+ wal-логируется и пригоден для интенсивных = поиска. GIN - обратный индекс: ключ → набор строк; идеален для tsvector (full-text), jsonb (?, @>), массивов и trigram (pg_trgm) для LIKE \'%inside%\'. GIN строится медленнее и больше на диске, но запросы по "содержит" выигрывают на порядки.',
+                'code_example' => '-- быстрый поиск по вхождению
+CREATE INDEX idx_products_name_trgm ON products USING gin (name gin_trgm_ops);
+SELECT * FROM products WHERE name ILIKE \'%phone%\';
+
+-- jsonb-фильтр
+CREATE INDEX idx_events_payload ON events USING gin (payload);
+SELECT * FROM events WHERE payload @> \'{"type":"click"}\';',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как читать вывод EXPLAIN ANALYZE в PostgreSQL и какие признаки плохого плана?',
+                'answer' => 'EXPLAIN показывает план; ANALYZE реально выполняет запрос и добавляет actual time, rows, loops. Тревожные признаки: Seq Scan по большой таблице с селективным WHERE (нет индекса), резкое расхождение rows-estimate vs actual (плохая статистика, нужен ANALYZE), Nested Loop с большим внешним циклом (надо Hash Join), Sort с внешним диском (work_mem мал), Bitmap Heap Scan + Recheck Cond (lossy). Используют BUFFERS для shared hit/read.',
+                'code_example' => 'EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT u.id, COUNT(o.id)
+FROM users u JOIN orders o ON o.user_id = u.id
+WHERE u.created_at > NOW() - INTERVAL \'30 days\'
+GROUP BY u.id;',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Чем отличаются Nested Loop, Hash Join и Merge Join?',
+                'answer' => 'Nested Loop: для каждой строки внешней таблицы ищет совпадения во внутренней; эффективен, если внешняя маленькая, а на внутренней есть индекс по ключу. Hash Join: строит хеш-таблицу по меньшей стороне в памяти, потом сканирует большую и ищет совпадения; хорош для больших равенств без индексов. Merge Join: обе стороны отсортированы по ключу - идёт двусторонний слиянием; быстро, если данные уже отсортированы (или есть подходящий индекс).',
+                'code_example' => '-- форсируем тип join для теста
+SET enable_hashjoin = off;
+SET enable_mergejoin = off;
+EXPLAIN ANALYZE SELECT * FROM a JOIN b USING (id);',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Объясните уровни изоляции и какие аномалии каждый предотвращает.',
+                'answer' => 'READ UNCOMMITTED - допускает dirty read. READ COMMITTED - нет dirty, но возможны non-repeatable read и phantom. REPEATABLE READ - устраняет non-repeatable; в Postgres также фантомы (snapshot), в MySQL InnoDB - фантомы возможны без gap-locks. SERIALIZABLE - полная сериализуемость, в Postgres через SSI с rollback при конфликте, в InnoDB - через range-locks. Также есть write skew - отлавливается только Serializable.',
+                'code_example' => '-- write skew пример
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT SUM(on_call) FROM doctors WHERE shift = \'night\';
+-- если >=2, можно уйти
+UPDATE doctors SET on_call = false WHERE id = 1;
+COMMIT; -- может откатиться при serialization_failure',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как работает MVCC в PostgreSQL и зачем нужен VACUUM?',
+                'answer' => 'MVCC: каждое UPDATE/DELETE не меняет строку, а создаёт новую версию с xmin (transaction id создания) и xmax (id удаления). Транзакции видят только версии с подходящим xmin/xmax относительно своего snapshot. Старые tuple остаются в таблице как "мертвые" - bloat. VACUUM маркирует их свободными для переиспользования; VACUUM FULL переписывает таблицу. Autovacuum триггерится по threshold; параметры autovacuum_vacuum_scale_factor нужно тюнить для горячих таблиц.',
+                'code_example' => '-- увидеть bloat
+SELECT relname, n_dead_tup, n_live_tup, last_autovacuum
+FROM pg_stat_user_tables
+ORDER BY n_dead_tup DESC LIMIT 10;',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое deadlock и как его диагностировать?',
+                'answer' => 'Deadlock - циклическое ожидание блокировок между транзакциями: T1 держит A, ждёт B; T2 держит B, ждёт A. БД детектирует цикл и убивает одну транзакцию (deadlock_timeout). Профилактика: блокировать ресурсы в одинаковом порядке (отсортировать ID), уменьшать длительность транзакций, использовать SELECT ... FOR UPDATE NOWAIT/SKIP LOCKED, индексировать колонки в WHERE при UPDATE. В Postgres логи показывают полные query обоих участников.',
+                'code_example' => '-- симметричный порядок блокировок
+SELECT * FROM accounts WHERE id IN (:a, :b)
+ORDER BY id FOR UPDATE;
+-- теперь обе транзакции лочат A раньше B',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое covering index и когда он даёт большой выигрыш?',
+                'answer' => 'Covering index содержит все колонки, нужные запросу, либо в ключе, либо в INCLUDE (Postgres 11+) - оптимизатор берёт данные прямо из индекса без обращения к heap (Index Only Scan). Это убирает random IO на табличные страницы для широких таблиц. В MySQL InnoDB primary key всегда кластерный, поэтому secondary index, содержащий PK + selected-columns, тоже covering.',
+                'code_example' => 'CREATE INDEX idx_orders_status_created
+ON orders (status, created_at) INCLUDE (total);
+-- запрос обслуживается Index Only Scan
+SELECT total FROM orders
+WHERE status = \'paid\' AND created_at > NOW() - INTERVAL \'1 day\';',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Какие виды партиционирования есть в Postgres и какие проблемы они решают?',
+                'answer' => 'PARTITION BY RANGE (по диапазону, чаще по дате) - типично для логов и time-series, позволяет быстро дропать старые данные через DROP PARTITION. PARTITION BY LIST - по перечислению (страна, тенант). PARTITION BY HASH - равномерное распределение. Partition pruning - оптимизатор не сканирует партиции, не подходящие под WHERE. Local indexes на каждой партиции; declarative partitioning поддерживает FK между партициями только с PG12+.',
+                'code_example' => 'CREATE TABLE events (
+    id bigserial, created_at timestamptz NOT NULL, payload jsonb
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE events_2026_05 PARTITION OF events
+    FOR VALUES FROM (\'2026-05-01\') TO (\'2026-06-01\');',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое replication lag и как с ним жить в read-heavy приложении?',
+                'answer' => 'Async-репликация: реплика отстаёт на величину от ms до секунд. Если сразу после записи прочитать с реплики, можно не увидеть свою же запись (read-your-writes). Лекарства: sticky-сессия на мастер N секунд после записи, использование synchronous_commit=remote_apply (синхронная репликация, дороже), read-your-writes routing по cookie/HEAD-запросу. Также Postgres может вернуть LSN после COMMIT и читать с реплики только когда replay_lsn >= нужного.',
+                'code_example' => '-- master
+COMMIT;
+SELECT pg_current_wal_lsn();
+-- replica
+SELECT pg_last_wal_replay_lsn() >= :lsn;',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое materialized view и когда она лучше обычного view?',
+                'answer' => 'View - сохранённый запрос; разворачивается при каждом обращении. Materialized view физически хранит результат, обновляется явно через REFRESH MATERIALIZED VIEW (CONCURRENTLY - без эксклюзивной блокировки, но требует UNIQUE-индекса). Подходит для тяжёлых аналитических агрегатов, которые можно пересчитывать раз в N минут/часов. Минусы: stale data, нужно расписание обновления, индексы строятся отдельно. Альтернатива - incremental rollup в отдельной таблице с обновлением по триггеру или CDC.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Чем отличаются jsonb и json в Postgres и почему jsonb обычно предпочтительнее?',
+                'answer' => 'json хранится текстом as-is, сохраняет порядок ключей и whitespace, медленный для запросов. jsonb парсится в бинарный формат при INSERT, ключи нормализованы, дубли удалены, доступ к полям O(log n), поддерживает GIN-индексы и операторы @>, ?, ?|. jsonb предпочтительнее почти всегда - кроме случаев, когда критичен exact-text round-trip (логирование сырых payload).',
+                'code_example' => 'CREATE INDEX idx_users_meta ON users USING gin (meta jsonb_path_ops);
+SELECT * FROM users WHERE meta @> \'{"plan":"premium"}\';',
+                'code_language' => 'sql',
+                'difficulty' => 3,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Какие отличия между MySQL InnoDB и PostgreSQL практически важны для разработки?',
+                'answer' => 'InnoDB: clustered primary index - данные физически отсортированы по PK, secondary indexes хранят PK как pointer. Postgres: heap-таблица + отдельные индексы, никакого clustering. InnoDB lock на gap для phantom; Postgres использует MVCC снапшоты. UPSERT: MySQL - ON DUPLICATE KEY UPDATE, Postgres - ON CONFLICT. Postgres имеет CTE, оконные с расширенным синтаксисом, jsonb, arrays, partial и expression indexes - MySQL это получил позже и беднее.',
+                'code_example' => '-- Postgres: partial index только для активных записей
+CREATE INDEX idx_users_active_email ON users(email)
+WHERE deleted_at IS NULL;
+-- MySQL аналога нет - нужен FULL index',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как устроен оптимизатор запросов и что такое статистики?',
+                'answer' => 'Оптимизатор перебирает планы и оценивает стоимость через cost-based модель. Статистики (pg_statistic, ANALYZE) дают cardinality для столбцов: гистограммы, MCV, n_distinct. На их основе оценивается selectivity предикатов и размер промежуточных наборов. Если статистики устарели или коррелированные предикаты - план кривой. Решения: ANALYZE, увеличить default_statistics_target, CREATE STATISTICS для функциональных зависимостей.',
+                'code_example' => '-- multivariate statistics для коррелированных колонок
+CREATE STATISTICS orders_corr (dependencies)
+ON status, payment_method FROM orders;
+ANALYZE orders;',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое CAP-теорема и как она применяется в выборе БД?',
+                'answer' => 'CAP: при network partition распределённая система может обеспечить либо Consistency, либо Availability - не оба. Single-leader RDBMS (Postgres, MySQL) - CP: при потере связи с мастером пишущая сторона недоступна. Cassandra/DynamoDB - AP: всегда отвечают, но возможна eventual consistency. Реальные системы тонко настраиваются: Postgres с synchronous_standby даёт сильнее C, ослабляет A; Cassandra QUORUM - компромисс. PACELC расширяет CAP, добавляя trade-off latency vs consistency без partition.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое write skew и приведите пример из реального приложения.',
+                'answer' => 'Write skew - две транзакции читают пересекающийся набор строк, принимают решение на основе snapshot и пишут разные строки, нарушая инвариант. Классический пример: дежурство врачей. Две транзакции видят, что дежурят 2 человека, и одновременно "уходят домой" - оба отметят off-call, нарушив правило "минимум один". REPEATABLE READ не ловит write skew, нужен SERIALIZABLE или SELECT FOR UPDATE на конфликтующие строки.',
+                'code_example' => '-- защита через SELECT FOR UPDATE
+BEGIN;
+SELECT count(*) FROM doctors WHERE on_call = true FOR UPDATE;
+-- если > 1, можно отключиться
+UPDATE doctors SET on_call = false WHERE id = :me;
+COMMIT;',
+                'code_language' => 'sql',
+                'difficulty' => 5,
+                'topic' => 'database.partitioning',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как реализовать поиск с пагинацией без OFFSET и почему OFFSET плохой?',
+                'answer' => 'OFFSET N сканирует и отбрасывает первые N строк - стоимость линейная, на 10-й странице запрос медленнее, чем на 1-й, при том же limit. Keyset (cursor) пагинация использует значение последней увиденной строки в WHERE и ORDER BY: WHERE (created_at, id) < (:last_at, :last_id). Стоимость стабильна и низкая при индексе на (created_at, id). Минус - нельзя прыгнуть на конкретную страницу, только next/prev.',
+                'code_example' => '-- keyset pagination
+SELECT id, title, created_at FROM posts
+WHERE (created_at, id) < (:cursor_at, :cursor_id)
+ORDER BY created_at DESC, id DESC
+LIMIT 20;',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.partitioning',
+            ],
+        ];
+    }
+}

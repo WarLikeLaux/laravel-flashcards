@@ -165,6 +165,7 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
                     <AnswerForm
                         flashcardId={flashcard.id}
                         result={allCorrect ? 'correct' : 'incorrect'}
+                        mode="cloze"
                         label={
                             allCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'
                         }

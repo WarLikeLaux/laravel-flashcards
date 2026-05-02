@@ -1,0 +1,74 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Oop;
+
+class ConstructorDestructor
+{
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.constructor_destructor',
+                'difficulty' => 2,
+                'question' => 'Что такое конструктор?',
+                'answer' => 'Конструктор - специальный метод __construct(), который вызывается автоматически при создании объекта через new. Используется для инициализации свойств объекта. С PHP 8.0 есть constructor property promotion - можно объявлять свойства прямо в параметрах конструктора, что сокращает бойлерплейт. Конструктор может принимать параметры; если родитель имеет свой конструктор, потомок может вызвать его через parent::__construct().',
+                'code_example' => '<?php
+// Старый стиль
+class UserOld
+{
+    public string $name;
+    public int $age;
+
+    public function __construct(string $name, int $age)
+    {
+        $this->name = $name;
+        $this->age = $age;
+    }
+}
+
+// PHP 8+ promotion
+class User
+{
+    public function __construct(
+        public string $name,
+        public int $age,
+    ) {}
+}
+
+$u = new User(\'Иван\', 30);',
+                'code_language' => 'php',
+            ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.constructor_destructor',
+                'difficulty' => 2,
+                'question' => 'Что такое деструктор?',
+                'answer' => 'Деструктор - метод __destruct(), который вызывается автоматически при уничтожении объекта (когда на него больше нет ссылок или скрипт завершается). Используется для освобождения ресурсов: закрытия файлов, соединений, очистки кешей. В PHP с автоматическим управлением памятью деструкторы используются реже, чем в C++. Не гарантируется порядок вызова деструкторов; в деструкторе нельзя бросать исключения.',
+                'code_example' => '<?php
+class FileLogger
+{
+    private $handle;
+
+    public function __construct(string $path)
+    {
+        $this->handle = fopen($path, \'a\');
+    }
+
+    public function log(string $msg): void
+    {
+        fwrite($this->handle, $msg . PHP_EOL);
+    }
+
+    public function __destruct()
+    {
+        if (is_resource($this->handle)) {
+            fclose($this->handle);
+        }
+    }
+}',
+                'code_language' => 'php',
+            ],
+        ];
+    }
+}

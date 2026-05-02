@@ -1,0 +1,240 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Laravel;
+
+class EloquentBasics
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Eloquent ORM?',
+                'answer' => 'Eloquent - это ORM (Object Relational Mapper) Laravel, реализующий паттерн Active Record. Простыми словами: каждая таблица в БД представлена классом-моделью, а каждая запись в таблице - объектом этого класса. Вместо SQL пишем понятный объектный код.',
+                'code_example' => 'class User extends Model {
+    protected $fillable = [\'name\', \'email\'];
+}
+
+$user = User::create([\'name\' => \'Anna\', \'email\' => \'a@b.c\']);
+$user = User::find(1);
+$users = User::where(\'active\', true)->get();',
+                'code_language' => 'php',
+                'difficulty' => 1,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Какие основные CRUD-методы есть у Eloquent-модели?',
+                'answer' => 'create() - создать запись из массива. save() - сохранить экземпляр. update() - обновить. delete() - удалить. find($id), findOrFail($id), first(), firstOrFail(), all(), get(). fresh() - получить актуальную копию из БД (новый экземпляр). refresh() - обновить ТЕКУЩИЙ экземпляр данными из БД.',
+                'code_example' => '$user = User::create([\'name\' => \'A\', \'email\' => \'a@b.c\']);
+$user->name = \'B\';
+$user->save();
+
+$user->update([\'name\' => \'C\']);
+
+$fresh = $user->fresh(); // новый объект
+$user->refresh();        // обновляет тот же объект
+
+$user->delete();',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое mass assignment и зачем нужны $fillable и $guarded?',
+                'answer' => 'Mass assignment - это создание/обновление модели массивом данных (User::create($input)). Это опасно: пользователь может подсунуть лишние поля (например is_admin). Поэтому Laravel требует явно указать разрешённые поля через $fillable (whitelist) или запрещённые через $guarded (blacklist). Можно использовать только одно из двух.',
+                'code_example' => 'class User extends Model {
+    protected $fillable = [\'name\', \'email\', \'password\'];
+    // или
+    protected $guarded = [\'is_admin\']; // все поля разрешены кроме is_admin
+}',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое casts в Eloquent?',
+                'answer' => 'Casts - это автоматическое преобразование атрибутов модели при чтении/записи. Например, поле в БД хранится как JSON-строка, а в коде вы работаете с массивом. Стандартные касты: int, bool, array, json, datetime, decimal:2, encrypted, AsArrayObject, AsCollection.',
+                'code_example' => 'class User extends Model {
+    protected $casts = [
+        \'is_admin\' => \'bool\',
+        \'options\' => \'array\',
+        \'birthday\' => \'datetime\',
+        \'salary\' => \'decimal:2\',
+    ];
+}',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как создать кастомный cast?',
+                'answer' => 'Кастомный cast - это класс, реализующий CastsAttributes с методами get (как читать) и set (как сохранять). Удобно для Value Objects.',
+                'code_example' => 'class MoneyCast implements CastsAttributes {
+    public function get($model, $key, $value, $attributes): Money {
+        return new Money($value, $attributes[\'currency\'] ?? \'USD\');
+    }
+
+    public function set($model, $key, $value, $attributes): array {
+        return [
+            \'amount\' => $value->amount,
+            \'currency\' => $value->currency,
+        ];
+    }
+}
+
+protected $casts = [\'price\' => MoneyCast::class];',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Accessors и Mutators? Какой современный синтаксис?',
+                'answer' => 'Accessor - это метод, который преобразует значение при ЧТЕНИИ атрибута. Mutator - при ЗАПИСИ. Старый синтаксис: getNameAttribute / setNameAttribute. Новый синтаксис (Laravel 9+): метод возвращает Attribute с get и set.',
+                'code_example' => '// Старый синтаксис
+public function getNameAttribute($value) {
+    return ucfirst($value);
+}
+public function setNameAttribute($value): void {
+    $this->attributes[\'name\'] = strtolower($value);
+}
+
+// Новый синтаксис
+protected function name(): Attribute {
+    return Attribute::make(
+        get: fn($value) => ucfirst($value),
+        set: fn($value) => strtolower($value),
+    );
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'В чём разница между firstOrCreate, updateOrCreate и upsert?',
+                'answer' => 'firstOrCreate - найти запись по условию или создать новую (если нет). updateOrCreate - найти и обновить, либо создать. Оба работают по 1 строке и срабатывают события модели. upsert - массовая операция: вставить/обновить много записей одним запросом, БЕЗ событий моделей.',
+                'code_example' => 'User::firstOrCreate(
+    [\'email\' => \'a@b.c\'],
+    [\'name\' => \'Anna\']
+);
+
+User::updateOrCreate(
+    [\'email\' => \'a@b.c\'],
+    [\'name\' => \'Updated\']
+);
+
+User::upsert([
+    [\'email\' => \'a@b.c\', \'name\' => \'A\'],
+    [\'email\' => \'b@b.c\', \'name\' => \'B\'],
+], uniqueBy: [\'email\'], update: [\'name\']);',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Query Builder в Laravel?',
+                'answer' => 'Query Builder - это инструмент для построения SQL-запросов через PHP-методы, не привязанный к моделям. Простыми словами: альтернатива Eloquent для случаев, когда не нужна модель, или для тяжёлых SQL.',
+                'code_example' => 'use Illuminate\Support\Facades\DB;
+
+$users = DB::table(\'users\')
+    ->select(\'id\', \'name\')
+    ->where(\'active\', true)
+    ->whereIn(\'role\', [\'admin\', \'editor\'])
+    ->orderBy(\'created_at\', \'desc\')
+    ->limit(10)
+    ->get();',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как делать joins в Query Builder?',
+                'answer' => 'Через методы join (INNER), leftJoin, rightJoin, crossJoin. Можно передавать closure для сложных условий. В Eloquent тоже работает.',
+                'code_example' => 'DB::table(\'users\')
+    ->join(\'posts\', \'users.id\', \'=\', \'posts.user_id\')
+    ->leftJoin(\'profiles\', \'users.id\', \'=\', \'profiles.user_id\')
+    ->select(\'users.*\', \'posts.title\')
+    ->get();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как использовать сырые выражения (raw expressions) в Query Builder?',
+                'answer' => 'DB::raw() для сырого SQL внутри select/where. selectRaw, whereRaw, orderByRaw, havingRaw - для удобства. ВАЖНО: при использовании raw нельзя подставлять данные пользователя без bindings - это SQL-injection.',
+                'code_example' => 'DB::table(\'users\')
+    ->selectRaw(\'COUNT(*) as total, status\')
+    ->whereRaw(\'created_at > ?\', [now()->subMonth()])
+    ->groupBy(\'status\')
+    ->get();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое DB::transaction и как использовать вложенные транзакции?',
+                'answer' => 'DB::transaction оборачивает код в транзакцию: если внутри callback бросается исключение - rollback, иначе - commit. Поддерживаются deadlock-retries (второй аргумент). Вложенные транзакции реализуются через savepoints. Альтернатива: DB::beginTransaction, DB::commit, DB::rollBack вручную.',
+                'code_example' => 'DB::transaction(function () {
+    User::create([...]);
+    Post::create([...]);
+}, attempts: 3);
+
+// Вручную
+DB::beginTransaction();
+try {
+    // ...
+    DB::commit();
+} catch (\Throwable $e) {
+    DB::rollBack();
+    throw $e;
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое custom cast и чем он отличается от accessor/mutator?',
+                'answer' => 'Accessor/mutator - методы getXAttribute/setXAttribute на одной модели, дублируются между моделями. Custom cast (CastsAttributes) - отдельный класс, инкапсулирует пару get/set, переиспользуется на любых моделях. Поддерживает Castable-интерфейс на value object (Money::castUsing()), что даёт чистую интеграцию с DDD. Также есть AsCollection, AsEncryptedCollection, AsArrayObject из коробки.',
+                'code_example' => '<?php
+final class MoneyCast implements CastsAttributes {
+    public function get($model, $key, $value, $attrs) {
+        return new Money((int) $attrs["{$key}_amount"], $attrs["{$key}_currency"]);
+    }
+    public function set($model, $key, $value, $attrs) {
+        return ["{$key}_amount" => $value->amount, "{$key}_currency" => $value->currency];
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'В чём разница между firstOrCreate, updateOrCreate и upsert?',
+                'answer' => 'firstOrCreate ищет по атрибутам и создаёт, если нет; не атомарен - между select и insert возможна гонка, лучше иметь UNIQUE-индекс. updateOrCreate дополнительно обновляет поля у найденного. upsert делает массовый INSERT ... ON DUPLICATE KEY UPDATE (MySQL) или ON CONFLICT (Postgres) и атомарен на уровне БД, обходит каждую строку без N запросов. Используйте upsert для импорта, и uniques + транзакцию для одиночных кейсов.',
+                'code_example' => '<?php
+User::upsert(
+    [["email" => "a@b", "name" => "A"], ["email" => "c@d", "name" => "C"]],
+    uniqueBy: ["email"],
+    update:   ["name"],
+);',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+        ];
+    }
+}

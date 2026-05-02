@@ -98,6 +98,7 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result={userResult}
+                            mode="true_false"
                             label={
                                 userResult === 'correct'
                                     ? 'Верно · Дальше'

@@ -1,0 +1,40 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Database;
+
+class Cloze
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, cloze_text?: string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Базы данных',
+                'question' => 'Заполни SQL для топ-10 пользователей по количеству заказов.',
+                'answer' => 'GROUP BY с COUNT и сортировкой DESC, LIMIT - стандартная конструкция top-N.',
+                'cloze_text' => 'SELECT u.id, COUNT(o.id) AS orders
+FROM users u
+{{LEFT JOIN}} orders o ON o.user_id = u.id
+{{GROUP BY}} u.id
+ORDER BY orders {{DESC}}
+LIMIT 10;',
+                'code_language' => 'sql',
+                'difficulty' => 2,
+                'topic' => 'database.cloze',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Заполни оконную функцию для нумерации заказов внутри пользователя по дате.',
+                'answer' => 'ROW_NUMBER() с PARTITION BY раскладывает строки по группам и нумерует внутри каждой согласно ORDER BY.',
+                'cloze_text' => 'SELECT id, user_id,
+       {{ROW_NUMBER}}() OVER ({{PARTITION BY}} user_id ORDER BY created_at) AS n
+FROM orders;',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.cloze',
+            ],
+        ];
+    }
+}

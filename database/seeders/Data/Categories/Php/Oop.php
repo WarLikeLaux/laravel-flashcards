@@ -1,0 +1,279 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Php;
+
+class Oop
+{
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое класс и объект в PHP?',
+                'answer' => 'Класс - это шаблон, описание структуры данных и поведения (свойства и методы). Объект - конкретный экземпляр класса, созданный через new. Все объекты в PHP передаются по ссылке-указателю (точнее, переменная содержит идентификатор объекта). $this внутри метода - ссылка на текущий объект. Свойства объявляются с указанием видимости.',
+                'code_example' => '<?php
+class User {
+    public string $name;
+    private int $age;
+
+    public function __construct(string $name, int $age) {
+        $this->name = $name;
+        $this->age = $age;
+    }
+
+    public function greet(): string {
+        return "Привет, я {$this->name}";
+    }
+}
+
+$user = new User("Иван", 30);
+echo $user->greet();   // Привет, я Иван
+echo $user->name;      // Иван (public)
+// echo $user->age;    // Fatal error (private)
+
+// Объект - по ссылке-идентификатору
+$user2 = $user;
+$user2->name = "Аня";
+echo $user->name;      // Аня !',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Какие модификаторы видимости есть в PHP?',
+                'answer' => 'public - доступно отовсюду. protected - доступно из самого класса и наследников. private - только из самого класса (не из наследников!). С PHP 8.1 для констант появилась видимость final. С PHP 8.4 готовится asymmetric visibility (public read / private write). Хорошая практика: по умолчанию private, повышать видимость только по необходимости.',
+                'code_example' => '<?php
+class Animal {
+    public string $name;
+    protected int $age;
+    private string $secret = "shh";
+
+    private function privateMethod() {}
+    protected function protectedMethod() {}
+}
+
+class Dog extends Animal {
+    public function showAge() {
+        return $this->age;     // OK (protected)
+        // return $this->secret; // Error (private)
+    }
+}
+
+$dog = new Dog();
+echo $dog->name;     // OK
+// echo $dog->age;   // Error
+// echo $dog->secret;// Error',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое наследование и как использовать?',
+                'answer' => 'Наследование позволяет создать класс на базе другого, переиспользуя его свойства и методы. Используется ключевое слово extends. PHP поддерживает только одиночное наследование (один родитель). Метод родителя можно вызвать через parent::method(). Конструктор родителя НЕ вызывается автоматически - нужно явно parent::__construct(). Для запрета переопределения используется final.',
+                'code_example' => '<?php
+class Animal {
+    public function __construct(protected string $name) {}
+
+    public function describe(): string {
+        return "Я животное по имени {$this->name}";
+    }
+}
+
+class Dog extends Animal {
+    public function __construct(string $name, private string $breed) {
+        parent::__construct($name);
+    }
+
+    public function describe(): string {
+        return parent::describe() . " породы {$this->breed}";
+    }
+}
+
+$dog = new Dog("Рекс", "лабрадор");
+echo $dog->describe();
+// "Я животное по имени Рекс породы лабрадор"
+
+final class Cat extends Animal {} // нельзя наследовать дальше',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое интерфейс и зачем он нужен?',
+                'answer' => 'Интерфейс - это контракт, описывающий, какие методы должен реализовать класс, без указания, КАК они работают. Все методы публичные и абстрактные. Класс может реализовать НЕСКОЛЬКО интерфейсов. Интерфейсы могут содержать константы. Используется для полиморфизма, тестирования (моки), Dependency Inversion. С PHP 8.0+ можно объявлять private/public final константы.',
+                'code_example' => '<?php
+interface Logger {
+    public function log(string $message): void;
+    public function error(string $message): void;
+}
+
+interface Formatter {
+    public function format(string $message): string;
+}
+
+// Множественная реализация
+class FileLogger implements Logger, Formatter {
+    public function log(string $message): void {
+        file_put_contents("log.txt", $this->format($message), FILE_APPEND);
+    }
+    public function error(string $message): void {
+        $this->log("[ERROR] $message");
+    }
+    public function format(string $message): string {
+        return "[" . date("Y-m-d") . "] $message\n";
+    }
+}
+
+function process(Logger $logger) {
+    $logger->log("test"); // полиморфизм
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое абстрактный класс и чем отличается от интерфейса?',
+                'answer' => 'Абстрактный класс - класс, объявленный с abstract, который нельзя инстанцировать напрямую. Может содержать как реализованные, так и абстрактные методы (без тела). От интерфейса отличается тем, что: может иметь свойства и реализованные методы, можно унаследовать только ОДИН абстрактный класс, методы могут быть с любой видимостью. Используется когда есть общая логика и общие данные у наследников.',
+                'code_example' => '<?php
+abstract class Shape {
+    public function __construct(public string $color) {}
+
+    // Абстрактный - наследник должен реализовать
+    abstract public function area(): float;
+
+    // Готовый метод
+    public function describe(): string {
+        return "Это {$this->color} фигура площадью {$this->area()}";
+    }
+}
+
+class Circle extends Shape {
+    public function __construct(string $color, private float $radius) {
+        parent::__construct($color);
+    }
+
+    public function area(): float {
+        return M_PI * $this->radius ** 2;
+    }
+}
+
+// $s = new Shape("red"); // Fatal error
+$c = new Circle("красная", 5);
+echo $c->describe();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое трейт (trait) и когда его использовать?',
+                'answer' => 'Трейт - это механизм горизонтального переиспользования кода в PHP. Простыми словами: это набор методов и свойств, которые можно "впихнуть" в класс через use. Решает проблему отсутствия множественного наследования. Не является типом, нельзя инстанцировать. Если возникает конфликт имён - используется insteadof и as. Подходит для cross-cutting concerns: логирование, кэширование, soft deletes.',
+                'code_example' => '<?php
+trait Timestampable {
+    private ?int $createdAt = null;
+    private ?int $updatedAt = null;
+
+    public function touch(): void {
+        $this->updatedAt = time();
+        $this->createdAt ??= time();
+    }
+}
+
+trait Loggable {
+    public function log(string $msg): void {
+        echo "[" . static::class . "] $msg\n";
+    }
+}
+
+class Post {
+    use Timestampable, Loggable;
+}
+
+$post = new Post();
+$post->touch();
+$post->log("created");
+
+// Конфликт имён
+trait A { public function hello() { echo "A"; } }
+trait B { public function hello() { echo "B"; } }
+class C {
+    use A, B {
+        A::hello insteadof B;
+        B::hello as helloB;
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое статические свойства и методы?',
+                'answer' => 'static - модификатор, делающий свойство или метод принадлежащим КЛАССУ, а не экземпляру. Доступ через ClassName::method() или self::method() / static::method() внутри класса. Статический метод не имеет $this. Статические свойства разделяются между всеми экземплярами. Часто применяется для фабричных методов, утилит, синглтонов. Минус: статика плохо тестируется и моделируется через DI.',
+                'code_example' => '<?php
+class Counter {
+    private static int $count = 0;
+
+    public static function increment(): int {
+        return ++self::$count;
+    }
+
+    public static function reset(): void {
+        self::$count = 0;
+    }
+}
+
+echo Counter::increment(); // 1
+echo Counter::increment(); // 2
+
+// Фабричный метод
+class User {
+    public static function fromArray(array $data): self {
+        return new self($data["name"], $data["age"]);
+    }
+    public function __construct(public string $name, public int $age) {}
+}
+
+$user = User::fromArray(["name" => "Иван", "age" => 30]);',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что такое constructor property promotion в PHP 8?',
+                'answer' => 'Constructor property promotion (PHP 8.0+) - это сокращённый синтаксис, позволяющий объявлять свойства класса прямо в параметрах конструктора через указание модификатора видимости. Простыми словами: одна строка вместо трёх (объявить, передать, присвоить). Можно комбинировать с readonly (PHP 8.1+) для immutable объектов.',
+                'code_example' => '<?php
+// Старый способ
+class UserOld {
+    private string $name;
+    private int $age;
+
+    public function __construct(string $name, int $age) {
+        $this->name = $name;
+        $this->age = $age;
+    }
+}
+
+// PHP 8+
+class User {
+    public function __construct(
+        private string $name,
+        private int $age,
+        public readonly string $email = "",
+    ) {}
+}
+
+$user = new User("Иван", 30, "i@i.ru");
+echo $user->email; // Иван',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.oop',
+            ],
+        ];
+    }
+}

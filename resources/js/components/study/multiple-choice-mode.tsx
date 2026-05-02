@@ -83,6 +83,7 @@ export function MultipleChoiceMode({ flashcard, options }: Props) {
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result={userResult}
+                            mode="multiple_choice"
                             label={
                                 userResult === 'correct'
                                     ? 'Верно · Дальше'

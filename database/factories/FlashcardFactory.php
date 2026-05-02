@@ -16,6 +16,8 @@ class FlashcardFactory extends Factory
     {
         return [
             'category' => $this->faker->randomElement(['PHP', 'Laravel', 'OOP', 'Database']),
+            'topic' => null,
+            'difficulty' => $this->faker->numberBetween(1, 5),
             'question' => $this->faker->sentence().'?',
             'answer' => $this->faker->paragraph(),
             'code_example' => null,
@@ -24,7 +26,8 @@ class FlashcardFactory extends Factory
             'short_answer' => null,
             'assemble_chunks' => null,
             'correct_streak' => 0,
-            'required_correct' => 1,
+            'correct_modes' => null,
+            'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => false,
         ];
     }
@@ -60,8 +63,9 @@ class FlashcardFactory extends Factory
     public function learned(): self
     {
         return $this->state(fn () => [
-            'correct_streak' => 1,
-            'required_correct' => 1,
+            'correct_streak' => Flashcard::LEARN_THRESHOLD,
+            'correct_modes' => ['reveal', 'true_false', 'multiple_choice'],
+            'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => true,
         ]);
     }

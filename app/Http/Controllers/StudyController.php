@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -11,10 +12,16 @@ use Inertia\Response;
 class StudyController extends Controller
 {
     private const FIELDS = [
-        'id', 'category', 'question', 'answer',
+        'id', 'category', 'topic', 'difficulty',
+        'question', 'answer',
         'code_example', 'code_language',
         'cloze_text', 'short_answer', 'assemble_chunks',
-        'correct_streak', 'required_correct',
+        'correct_streak', 'correct_modes', 'required_correct',
+    ];
+
+    private const MODES = [
+        'reveal', 'true_false', 'multiple_choice',
+        'cloze', 'type_in', 'assemble', 'matching',
     ];
 
     public function show(): Response
@@ -33,7 +40,7 @@ class StudyController extends Controller
             ]);
         }
 
-        $flashcard = Flashcard::query()->due()->inRandomOrder()->first();
+        $flashcard = $this->pickDueCard();
 
         if ($flashcard === null) {
             return Inertia::render('study/index', [
@@ -48,7 +55,7 @@ class StudyController extends Controller
         }
 
         $modes = $this->availableModes($flashcard);
-        $mode = $modes[array_rand($modes)];
+        $mode = $this->pickMode($flashcard, $modes);
 
         return Inertia::render('study/index', [
             'mode' => $mode,
@@ -65,10 +72,11 @@ class StudyController extends Controller
     {
         $data = request()->validate([
             'result' => ['required', Rule::in(['correct', 'incorrect'])],
+            'mode' => ['nullable', 'string', Rule::in(self::MODES)],
         ]);
 
         $data['result'] === 'correct'
-            ? $flashcard->markCorrect()
+            ? $flashcard->markCorrect($data['mode'] ?? null)
             : $flashcard->markIncorrect();
 
         return redirect()->route('study.show');
@@ -89,11 +97,39 @@ class StudyController extends Controller
             }
 
             $pair['question_id'] === $pair['answer_id']
-                ? $card->markCorrect()
+                ? $card->markCorrect('matching')
                 : $card->markIncorrect();
         }
 
         return redirect()->route('study.show');
+    }
+
+    private function pickDueCard(): ?Flashcard
+    {
+        $minDifficulty = Flashcard::query()->due()->min('difficulty');
+
+        if ($minDifficulty === null) {
+            return null;
+        }
+
+        return Flashcard::query()
+            ->due()
+            ->where('difficulty', $minDifficulty)
+            ->inRandomOrder()
+            ->first();
+    }
+
+    /**
+     * @param array<int, string> $modes
+     */
+    private function pickMode(Flashcard $card, array $modes): string
+    {
+        $taken = (array) ($card->correct_modes ?? []);
+        $remaining = array_values(array_diff($modes, $taken));
+
+        $pool = $remaining !== [] ? $remaining : $modes;
+
+        return $pool[array_rand($pool)];
     }
 
     /**
@@ -103,16 +139,16 @@ class StudyController extends Controller
     {
         $modes = ['reveal'];
 
-        $sameCategoryCount = Flashcard::query()
+        $sameTopicOrCategory = Flashcard::query()
             ->where('id', '!=', $card->id)
-            ->where('category', $card->category)
+            ->where(fn (Builder $q) => $this->scopeNeighbors($q, $card))
             ->count();
 
-        if ($sameCategoryCount >= 1) {
+        if ($sameTopicOrCategory >= 1) {
             $modes[] = 'true_false';
         }
 
-        if ($sameCategoryCount >= 3) {
+        if ($sameTopicOrCategory >= 3) {
             $modes[] = 'multiple_choice';
         }
 
@@ -131,6 +167,15 @@ class StudyController extends Controller
         return $modes;
     }
 
+    private function scopeNeighbors(Builder $q, Flashcard $card): Builder
+    {
+        if ($card->topic !== null) {
+            return $q->where('topic', $card->topic);
+        }
+
+        return $q->where('category', $card->category);
+    }
+
     /**
      * @return array{answer: string, is_correct: bool}
      */
@@ -142,9 +187,7 @@ class StudyController extends Controller
             return ['answer' => $card->answer, 'is_correct' => true];
         }
 
-        $distractor = Flashcard::query()
-            ->where('id', '!=', $card->id)
-            ->where('category', $card->category)
+        $distractor = $this->neighborQuery($card)
             ->inRandomOrder()
             ->first();
 
@@ -160,12 +203,22 @@ class StudyController extends Controller
      */
     private function multipleChoiceOptions(Flashcard $card): array
     {
-        $distractors = Flashcard::query()
-            ->where('id', '!=', $card->id)
-            ->where('category', $card->category)
+        $distractors = $this->neighborQuery($card)
             ->inRandomOrder()
             ->limit(3)
             ->get();
+
+        if ($distractors->count() < 3 && $card->topic !== null) {
+            $needed = 3 - $distractors->count();
+            $extra = Flashcard::query()
+                ->where('id', '!=', $card->id)
+                ->where('category', $card->category)
+                ->whereNotIn('id', $distractors->pluck('id'))
+                ->inRandomOrder()
+                ->limit($needed)
+                ->get();
+            $distractors = $distractors->concat($extra);
+        }
 
         return $distractors
             ->map(fn (Flashcard $c) => [
@@ -191,9 +244,7 @@ class StudyController extends Controller
         /** @var array<int, string> $correct */
         $correct = (array) $card->assemble_chunks;
 
-        $distractors = Flashcard::query()
-            ->where('id', '!=', $card->id)
-            ->where('category', $card->category)
+        $distractors = $this->neighborQuery($card)
             ->whereNotNull('assemble_chunks')
             ->inRandomOrder()
             ->limit(5)
@@ -214,6 +265,15 @@ class StudyController extends Controller
         return ['pool' => $pool];
     }
 
+    private function neighborQuery(Flashcard $card): Builder
+    {
+        $query = Flashcard::query()->where('id', '!=', $card->id);
+
+        return $card->topic !== null
+            ? $query->where('topic', $card->topic)
+            : $query->where('category', $card->category);
+    }
+
     /**
      * @return array{
      *     category: string,
@@ -223,28 +283,47 @@ class StudyController extends Controller
      */
     private function buildMatching(): ?array
     {
-        $category = Flashcard::query()
+        $topic = Flashcard::query()
             ->due()
             ->whereNotNull('short_answer')
-            ->groupBy('category')
+            ->whereNotNull('topic')
+            ->groupBy('topic')
             ->havingRaw('COUNT(*) >= 4')
             ->inRandomOrder()
-            ->value('category');
+            ->value('topic');
 
-        if ($category === null) {
-            return null;
+        if ($topic !== null) {
+            $cards = Flashcard::query()
+                ->due()
+                ->whereNotNull('short_answer')
+                ->where('topic', $topic)
+                ->inRandomOrder()
+                ->limit(4)
+                ->get(['id', 'category', 'question', 'short_answer']);
+        } else {
+            $category = Flashcard::query()
+                ->due()
+                ->whereNotNull('short_answer')
+                ->groupBy('category')
+                ->havingRaw('COUNT(*) >= 4')
+                ->inRandomOrder()
+                ->value('category');
+
+            if ($category === null) {
+                return null;
+            }
+
+            $cards = Flashcard::query()
+                ->due()
+                ->whereNotNull('short_answer')
+                ->where('category', $category)
+                ->inRandomOrder()
+                ->limit(4)
+                ->get(['id', 'category', 'question', 'short_answer']);
         }
 
-        $cards = Flashcard::query()
-            ->due()
-            ->whereNotNull('short_answer')
-            ->where('category', $category)
-            ->inRandomOrder()
-            ->limit(4)
-            ->get(['id', 'question', 'short_answer']);
-
         return [
-            'category' => $category,
+            'category' => (string) $cards->first()?->category,
             'questions' => $cards
                 ->map(fn (Flashcard $c) => ['id' => $c->id, 'text' => $c->question])
                 ->values()

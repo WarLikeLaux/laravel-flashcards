@@ -1,6 +1,8 @@
 export type Flashcard = {
     id: number;
     category: string | null;
+    topic: string | null;
+    difficulty: number;
     question: string;
     answer: string;
     code_example: string | null;
@@ -9,6 +11,7 @@ export type Flashcard = {
     short_answer: string | null;
     assemble_chunks: string[] | null;
     correct_streak: number;
+    correct_modes: string[] | null;
     required_correct: number;
     is_learned: boolean;
 };

@@ -13,10 +13,11 @@ use Inertia\Response;
 class FlashcardController extends Controller
 {
     private const FIELDS = [
-        'id', 'category', 'question', 'answer',
+        'id', 'category', 'topic', 'difficulty',
+        'question', 'answer',
         'code_example', 'code_language',
         'cloze_text', 'short_answer', 'assemble_chunks',
-        'correct_streak', 'required_correct', 'is_learned',
+        'correct_streak', 'correct_modes', 'required_correct', 'is_learned',
     ];
 
     public function index(Request $request): Response
@@ -48,7 +49,11 @@ class FlashcardController extends Controller
         }
 
         return Inertia::render('flashcards/index', [
-            'flashcards' => $query->latest('id')->paginate(24, self::FIELDS)->withQueryString(),
+            'flashcards' => $query
+                ->orderBy('difficulty')
+                ->orderBy('id')
+                ->paginate(24, self::FIELDS)
+                ->withQueryString(),
             'stats' => $this->stats(),
             'categoryStats' => $this->categoryStats(),
             'filters' => [
@@ -96,7 +101,8 @@ class FlashcardController extends Controller
     {
         Flashcard::query()->update([
             'correct_streak' => 0,
-            'required_correct' => 1,
+            'correct_modes' => null,
+            'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => false,
         ]);
 

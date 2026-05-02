@@ -158,13 +158,28 @@ function Wrapper({
                             {stats.learned}/{stats.total} выучено
                         </Badge>
                         {flashcard && (
-                            <Badge
-                                variant="outline"
-                                className="bg-background/60 font-mono tabular-nums"
-                            >
-                                {flashcard.correct_streak}/
-                                {flashcard.required_correct}
-                            </Badge>
+                            <>
+                                <Badge
+                                    variant="outline"
+                                    className="bg-background/60 font-mono tabular-nums"
+                                    title="Сложность"
+                                >
+                                    {'★'.repeat(
+                                        Math.max(
+                                            1,
+                                            Math.min(5, flashcard.difficulty),
+                                        ),
+                                    )}
+                                </Badge>
+                                <Badge
+                                    variant="outline"
+                                    className="bg-background/60 font-mono tabular-nums"
+                                    title="Различных режимов с правильным ответом"
+                                >
+                                    {flashcard.correct_modes?.length ?? 0}/
+                                    {flashcard.required_correct}
+                                </Badge>
+                            </>
                         )}
                     </div>
                 </div>

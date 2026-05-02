@@ -404,19 +404,25 @@ function Pagination({
     const pages = pageRange(page.current_page, page.last_page);
     const buildHref = (n: number) => {
         const params: Record<string, string> = {};
+
         if (filters.q !== '') {
             params.q = filters.q;
         }
+
         if (filters.status !== 'all') {
             params.status = filters.status;
         }
+
         if (filters.category !== 'all' && filters.category !== '') {
             params.category = filters.category;
         }
+
         if (n > 1) {
             params.page = String(n);
         }
+
         const qs = new URLSearchParams(params).toString();
+
         return flashcards.index().url + (qs ? `?${qs}` : '');
     };
 
@@ -553,6 +559,7 @@ function pageRange(current: number, last: number): (number | 'ellipsis')[] {
     }
 
     result.push(last);
+
     return result;
 }
 
@@ -589,12 +596,15 @@ function EmptyResult({ hasFilters }: { hasFilters: boolean }) {
 }
 
 function FlashcardCard({ card }: { card: Flashcard }) {
+    const distinctModes = card.correct_modes?.length ?? 0;
+
     return (
         <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-md">
             <CardHeader className="gap-2">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                         <CategoryBadge category={card.category} />
+                        <DifficultyBadge level={card.difficulty} />
                         {card.is_learned ? (
                             <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                                 выучено
@@ -603,8 +613,9 @@ function FlashcardCard({ card }: { card: Flashcard }) {
                             <Badge
                                 variant="outline"
                                 className="font-mono tabular-nums"
+                                title="Различных режимов с правильным ответом"
                             >
-                                {card.correct_streak}/{card.required_correct}
+                                {distinctModes}/{card.required_correct}
                             </Badge>
                         )}
                     </div>
@@ -627,6 +638,26 @@ function FlashcardCard({ card }: { card: Flashcard }) {
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+function DifficultyBadge({ level }: { level: number }) {
+    const clamped = Math.max(1, Math.min(5, level));
+    const tone =
+        clamped <= 2
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : clamped === 3
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+              : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+
+    return (
+        <Badge
+            variant="outline"
+            className={cn('font-mono tabular-nums', tone)}
+            title="Сложность"
+        >
+            {'★'.repeat(clamped)}
+        </Badge>
     );
 }
 

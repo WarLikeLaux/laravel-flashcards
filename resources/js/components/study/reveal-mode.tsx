@@ -55,6 +55,7 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="incorrect"
+                            mode="reveal"
                             variant="destructive"
                             label="Не знал"
                             icon={<X />}
@@ -63,6 +64,7 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="correct"
+                            mode="reveal"
                             label="Знал"
                             icon={<Check />}
                             fullWidthOnMobile

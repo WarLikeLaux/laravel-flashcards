@@ -1,0 +1,325 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Laravel;
+
+class EloquentAdvanced
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Eager Loading и зачем он нужен?',
+                'answer' => 'Eager loading - это предварительная загрузка связей одним или несколькими запросами вместо ленивой загрузки на каждом обращении. Простыми словами: вместо N+1 запросов делается всего 2. Используется метод with() при запросе или load() уже после получения коллекции.',
+                'code_example' => '// плохо (N+1)
+foreach (Post::all() as $post) {
+    echo $post->user->name; // запрос к БД на каждом посте
+}
+
+// хорошо (eager loading)
+foreach (Post::with(\'user\')->get() as $post) {
+    echo $post->user->name; // 0 доп. запросов
+}
+
+// load - после получения
+$posts = Post::all();
+$posts->load(\'comments\');',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое проблема N+1 и как её обнаружить?',
+                'answer' => 'N+1 - это антипаттерн, при котором делается 1 запрос для основной выборки и ещё N запросов для связей. На 100 постов получится 101 запрос вместо 2. Решение: eager loading (with). Обнаружить можно через Laravel Debugbar, Telescope, либо включить Model::preventLazyLoading() в AppServiceProvider - тогда будет ошибка при попытке lazy load.',
+                'code_example' => '// в AppServiceProvider::boot()
+Model::preventLazyLoading(! app()->isProduction());
+
+// или одноразово
+Post::preventLazyLoading();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое withCount?',
+                'answer' => 'withCount - подсчитывает количество связанных записей одним SQL-запросом без их загрузки. Возвращает атрибут вида posts_count. Также есть withSum, withAvg, withMin, withMax.',
+                'code_example' => '$users = User::withCount(\'posts\', \'comments\')->get();
+foreach ($users as $user) {
+    echo $user->posts_count;
+    echo $user->comments_count;
+}
+
+// с условием
+User::withCount([\'posts as published_posts_count\' => fn($q) => $q->where(\'published\', true)])->get();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Local и Global scopes в Eloquent?',
+                'answer' => 'Local scope - метод модели с префиксом scope, добавляющий условие к запросу (вызывается опционально). Global scope - класс, реализующий Scope, который автоматически применяется ко ВСЕМ запросам модели. Полезно для soft delete или multi-tenancy.',
+                'code_example' => '// Local
+public function scopeActive($query) {
+    return $query->where(\'active\', true);
+}
+User::active()->get();
+
+// Global
+class TenantScope implements Scope {
+    public function apply(Builder $b, Model $m): void {
+        $b->where(\'tenant_id\', auth()->user()->tenant_id);
+    }
+}
+
+class Post extends Model {
+    protected static function booted(): void {
+        static::addGlobalScope(new TenantScope);
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Observers в Laravel?',
+                'answer' => 'Observer - это класс, который слушает события модели (creating, created, updating, updated, deleting, deleted, restoring, restored). Простыми словами: когда что-то происходит с моделью, observer выполняет код. Регистрируется в EventServiceProvider или через атрибут #[ObservedBy].',
+                'code_example' => '#[ObservedBy(UserObserver::class)]
+class User extends Model {}
+
+class UserObserver {
+    public function creating(User $user): void {
+        $user->slug = Str::slug($user->name);
+    }
+    public function deleted(User $user): void {
+        Mail::to($user)->send(new GoodbyeMail());
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Какие события генерируют Eloquent-модели?',
+                'answer' => 'retrieved, creating, created, updating, updated, saving, saved, deleting, deleted, restoring, restored, replicating, trashed, forceDeleting, forceDeleted. saving и saved срабатывают и при create, и при update.',
+                'code_example' => 'protected static function booted(): void {
+    static::creating(function (User $user) {
+        $user->uuid = Str::uuid();
+    });
+
+    static::deleted(function (User $user) {
+        Cache::forget("user.{$user->id}");
+    });
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Soft Deletes?',
+                'answer' => 'Soft Delete - это "мягкое удаление": запись не удаляется физически, а в столбце deleted_at ставится текущая дата. Простыми словами: запись помечается удалённой, но остаётся в БД. По умолчанию такие записи скрыты в выборках. Подключается трейтом SoftDeletes.',
+                'code_example' => 'use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Post extends Model {
+    use SoftDeletes;
+}
+
+$post->delete();           // soft delete
+$post->forceDelete();      // hard delete
+$post->restore();          // восстановить
+
+Post::withTrashed()->get();   // включая удалённые
+Post::onlyTrashed()->get();   // только удалённые',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как управлять timestamps в Eloquent?',
+                'answer' => 'По умолчанию у модели есть created_at и updated_at, заполняемые автоматически. Отключить: $timestamps = false. Изменить формат: $dateFormat. Поменять имена: const CREATED_AT, const UPDATED_AT. Точечно отключить обновление updated_at: $model->timestamps = false перед save или метод updateQuietly.',
+                'code_example' => 'class Post extends Model {
+    public $timestamps = true;
+    const CREATED_AT = \'creation_date\';
+    const UPDATED_AT = \'last_update\';
+}
+
+// Обновить без изменения updated_at
+$post->timestamps = false;
+$post->save();
+
+// или quietly - без событий
+$post->updateQuietly([\'views\' => $post->views + 1]);',
+                'code_language' => 'php',
+                'difficulty' => 2,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое chunk, lazy и cursor в Eloquent? В чём разница?',
+                'answer' => 'chunk - выбирает по N записей и отдаёт коллекцию в callback. lazy - возвращает LazyCollection, выбирая записи порциями (внутри также chunked). cursor - использует SQL-курсор и держит ОДНУ запись в памяти, экономит память сильнее всего, но открывает долгое соединение. Все три - для обработки больших таблиц без OOM.',
+                'code_example' => 'User::chunk(1000, function ($users) {
+    foreach ($users as $u) { /* ... */ }
+});
+
+User::lazy()->each(fn($u) => /* ... */);
+
+foreach (User::cursor() as $user) { /* ... */ }',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое whereHas и whereDoesntHave?',
+                'answer' => 'whereHas фильтрует основные записи по наличию связи с условием. whereDoesntHave - наоборот, по отсутствию. Например: пользователи, у которых есть посты с определённым заголовком.',
+                'code_example' => 'User::whereHas(\'posts\', function ($q) {
+    $q->where(\'published\', true);
+})->get();
+
+User::whereDoesntHave(\'posts\')->get(); // без постов',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое lockForUpdate и sharedLock?',
+                'answer' => 'lockForUpdate - "пишущая" блокировка строки до конца транзакции (FOR UPDATE), другие транзакции не смогут читать с lock или писать. sharedLock - "читающая" блокировка (FOR SHARE), другие могут читать, но не писать. Используется для борьбы с гонками (race conditions).',
+                'code_example' => 'DB::transaction(function () {
+    $account = Account::where(\'id\', 1)->lockForUpdate()->first();
+    $account->balance -= 100;
+    $account->save();
+});',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что делает DB::afterCommit?',
+                'answer' => 'afterCommit регистрирует callback, который выполнится только ПОСЛЕ успешного commit транзакции. Полезно для отправки событий, очередей, уведомлений - чтобы не отправлять их, если транзакция откатится. У моделей и job-ов есть свойства $afterCommit или ShouldQueueAfterCommit.',
+                'code_example' => 'DB::transaction(function () use ($order) {
+    $order->save();
+
+    DB::afterCommit(function () use ($order) {
+        SendOrderConfirmation::dispatch($order);
+    });
+});',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как делать пагинацию в Laravel?',
+                'answer' => 'У Eloquent и Query Builder есть paginate($perPage), simplePaginate (только prev/next, без подсчёта total), cursorPaginate (быстрый, по cursor вместо offset, не показывает номера страниц). В Blade можно вывести ссылки через {{ $items->links() }}. Для API используется ->toArray() или JsonResource.',
+                'code_example' => '$users = User::paginate(15);
+$users = User::simplePaginate(15);
+$users = User::cursorPaginate(15);
+
+// API
+return UserResource::collection(User::paginate(15));
+
+// Blade
+{{ $users->links() }}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как реализовать поиск с фильтрами в Eloquent?',
+                'answer' => 'Через условные методы when() Query Builder. Также популярно использовать пакет Spatie Query Builder. Идея: для каждого фильтра проверяем, передан ли он, и добавляем where.',
+                'code_example' => 'public function index(Request $request) {
+    return Post::query()
+        ->when($request->search, fn($q, $s) =>
+            $q->where(\'title\', \'like\', "%$s%"))
+        ->when($request->category, fn($q, $c) =>
+            $q->where(\'category_id\', $c))
+        ->when($request->author, fn($q, $a) =>
+            $q->whereHas(\'author\', fn($qa) => $qa->where(\'id\', $a)))
+        ->orderBy(\'created_at\', \'desc\')
+        ->paginate(15);
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем Eloquent Observer отличается от Event/Listener и когда выбирать что?',
+                'answer' => 'Observer - класс, методы которого - это коллбэки на жизненный цикл модели (creating, saved, deleted). Удобен, когда логика тесно связана с моделью. Event/Listener - общая шина: модель/код диспатчит произвольное событие, на него подписываются несколько слушателей, легко асинхронить через ShouldQueue. Observer лаконичнее для аудита/таймстампов, события - для кросс-доменной интеграции.',
+                'code_example' => '<?php
+class UserObserver {
+    public function created(User $u): void { Mail::to($u)->send(new Welcome()); }
+    public function deleting(User $u): void { $u->posts()->delete(); }
+}
+// AppServiceProvider::boot
+User::observe(UserObserver::class);',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как избежать N+1 при полиморфных связях morphTo?',
+                'answer' => 'Обычный with("commentable") не работает напрямую, потому что для каждого типа нужен отдельный запрос. Используйте with("commentable") + morphWith() для жадной подзагрузки конкретных типов с их связями. Также есть morphMap в boot() - фиксирует строковые алиасы вместо FQCN, что устойчиво к рефакторингу. Альтернативно - явный foreach с groupBy типа.',
+                'code_example' => '<?php
+Comment::with(["commentable" => function (MorphTo $morphTo) {
+    $morphTo->morphWith([
+        Post::class => ["author"],
+        Video::class => ["channel"],
+    ]);
+}])->get();',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем отличаются local query scope от global scope и какие подводные камни у global?',
+                'answer' => 'Local scope - public method scopeXxx, явно вызывается в цепочке (User::active()->get()). Global scope автоматически применяется ко всем запросам модели, реализуется через Scope-интерфейс или Closure в booted(). Проблема: можно забыть и удивляться "куда делись soft-deleted записи". Снимать глобальный scope через withoutGlobalScope или withTrashed(). Также job, сериализующий модель, может потерять контекст scope.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что произойдёт, если вызвать $user->posts во foreach без with("posts")?',
+                'answer' => 'Это классический N+1: для каждого юзера выполнится отдельный SELECT по posts. with("posts") делает eager loading: один SELECT users + один WHERE user_id IN (...). При большом наборе данных N+1 даёт сотни запросов и убивает latency. Полезно включить Model::preventLazyLoading() в локальной среде - оно бросает исключение при ленивой загрузке и сразу ловит баг.',
+                'code_example' => '<?php
+// AppServiceProvider::boot
+Model::preventLazyLoading(! app()->isProduction());
+
+// в коде
+$users = User::with(["posts" => fn($q) => $q->latest()->limit(5)])->get();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как работают Laravel-транзакции с deadlock и как их повторять?',
+                'answer' => 'DB::transaction($callback, $attempts) ловит QueryException и при коде deadlock (например, 1213 в MySQL) повторяет до $attempts раз. Без указания attempts он бросает первое же исключение. Для распределённых сценариев nested-транзакции используют SAVEPOINT - DB::transaction внутри другой создаёт точку отката, а не новую транзакцию. afterCommit-хуки сработают только после внешнего коммита.',
+                'code_example' => '<?php
+DB::transaction(function () use ($from, $to, $sum) {
+    $from->lockForUpdate()->decrement("balance", $sum);
+    $to->lockForUpdate()->increment("balance", $sum);
+}, attempts: 3);',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+        ];
+    }
+}

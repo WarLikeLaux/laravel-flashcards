@@ -19,6 +19,8 @@ class StoreFlashcardRequest extends FormRequest
     {
         return [
             'category' => ['nullable', 'string', 'max:64'],
+            'topic' => ['nullable', 'string', 'max:64'],
+            'difficulty' => ['nullable', 'integer', 'between:1,5'],
             'question' => ['required', 'string', 'max:2000'],
             'answer' => ['required', 'string', 'max:5000'],
             'code_example' => ['nullable', 'string', 'max:10000'],

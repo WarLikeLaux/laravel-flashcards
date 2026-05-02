@@ -1,0 +1,109 @@
+<?php
+
+namespace Database\Seeders\Data\Categories\Database;
+
+class BasicConcepts
+{
+    /**
+     * @return array<int, array{category: string, question: string, answer: string, code_example?: ?string, code_language?: ?string, difficulty?: int, topic?: string}>
+     */
+    public static function all(): array
+    {
+        return [
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое база данных простыми словами?',
+                'answer' => 'База данных (БД) - это организованное хранилище данных, к которому удобно обращаться, добавлять, изменять и удалять записи. Простыми словами: представь огромный шкаф с папками, где всё разложено по полочкам и есть быстрый способ найти нужное. СУБД (Система Управления Базами Данных) - это программа, которая управляет этим шкафом: PostgreSQL, MySQL, SQLite, Oracle и т.д.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 1,
+                'topic' => 'database.basic_concepts',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое таблица, строка и столбец?',
+                'answer' => 'Таблица - это набор данных в виде сетки (как Excel-лист). Строка (row, record, кортеж) - одна запись, например один пользователь. Столбец (column, поле, атрибут) - характеристика записи, например имя или email. Каждый столбец имеет тип данных (integer, varchar, timestamp и т.д.).',
+                'code_example' => <<<'SQL'
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 1,
+                'topic' => 'database.basic_concepts',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое реляционная база данных?',
+                'answer' => 'Реляционная БД - это БД, основанная на математической модели отношений (relations). Данные хранятся в таблицах, связанных между собой через ключи. Главные принципы: данные структурированы, есть схема, поддерживаются транзакции и SQL. Примеры: PostgreSQL, MySQL, Oracle, SQL Server, SQLite.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 1,
+                'topic' => 'database.basic_concepts',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое первичный ключ (PRIMARY KEY)?',
+                'answer' => 'Первичный ключ - это столбец (или набор столбцов), который уникально идентифицирует каждую строку в таблице. Свойства: значение всегда уникальное, не может быть NULL, в таблице только один PRIMARY KEY. Обычно на первичный ключ автоматически создаётся индекс.',
+                'code_example' => <<<'SQL'
+-- Простой первичный ключ
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255)
+);
+
+-- Составной первичный ключ
+CREATE TABLE order_items (
+    order_id BIGINT,
+    product_id BIGINT,
+    quantity INT,
+    PRIMARY KEY (order_id, product_id)
+);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 2,
+                'topic' => 'database.basic_concepts',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое внешний ключ (FOREIGN KEY)?',
+                'answer' => 'Внешний ключ - это столбец, который ссылается на первичный ключ другой таблицы. Он обеспечивает ссылочную целостность: нельзя добавить заказ для несуществующего пользователя. У FK можно настроить ON DELETE и ON UPDATE: CASCADE, SET NULL, RESTRICT, NO ACTION.',
+                'code_example' => <<<'SQL'
+CREATE TABLE orders (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    total DECIMAL(10,2),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 2,
+                'topic' => 'database.basic_concepts',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое UNIQUE constraint?',
+                'answer' => 'UNIQUE constraint гарантирует, что во всех строках значения в указанном столбце (или комбинации столбцов) будут уникальны. В отличие от PRIMARY KEY, UNIQUE-столбец может содержать NULL (в большинстве СУБД NULL не считается равным другому NULL). Можно иметь несколько UNIQUE constraints на одной таблице.',
+                'code_example' => <<<'SQL'
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20) UNIQUE
+);
+
+-- Составной уникальный constraint
+ALTER TABLE memberships
+ADD CONSTRAINT uniq_user_team UNIQUE (user_id, team_id);
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 2,
+                'topic' => 'database.basic_concepts',
+            ],
+        ];
+    }
+}

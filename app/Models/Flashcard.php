@@ -12,8 +12,12 @@ class Flashcard extends Model
     /** @use HasFactory<FlashcardFactory> */
     use HasFactory;
 
+    public const LEARN_THRESHOLD = 3;
+
     protected $fillable = [
         'category',
+        'topic',
+        'difficulty',
         'question',
         'answer',
         'code_example',
@@ -22,20 +26,24 @@ class Flashcard extends Model
         'short_answer',
         'assemble_chunks',
         'correct_streak',
+        'correct_modes',
         'required_correct',
         'is_learned',
     ];
 
     protected $casts = [
         'assemble_chunks' => 'array',
+        'correct_modes' => 'array',
+        'difficulty' => 'integer',
         'correct_streak' => 'integer',
         'required_correct' => 'integer',
         'is_learned' => 'boolean',
     ];
 
     protected $attributes = [
+        'difficulty' => 1,
         'correct_streak' => 0,
-        'required_correct' => 1,
+        'required_correct' => self::LEARN_THRESHOLD,
         'is_learned' => false,
     ];
 
@@ -44,11 +52,19 @@ class Flashcard extends Model
         return $query->where('is_learned', false);
     }
 
-    public function markCorrect(): void
+    public function markCorrect(?string $mode = null): void
     {
         $this->correct_streak++;
 
-        if ($this->correct_streak >= $this->required_correct) {
+        if ($mode !== null) {
+            $modes = (array) ($this->correct_modes ?? []);
+            if (! in_array($mode, $modes, true)) {
+                $modes[] = $mode;
+            }
+            $this->correct_modes = array_values($modes);
+        }
+
+        if ($this->isReadyToLearn()) {
             $this->is_learned = true;
         }
 
@@ -58,7 +74,7 @@ class Flashcard extends Model
     public function markIncorrect(): void
     {
         $this->correct_streak = 0;
-        $this->required_correct++;
+        $this->correct_modes = [];
         $this->is_learned = false;
         $this->save();
     }
@@ -66,8 +82,16 @@ class Flashcard extends Model
     public function resetProgress(): void
     {
         $this->correct_streak = 0;
-        $this->required_correct = 1;
+        $this->correct_modes = [];
         $this->is_learned = false;
         $this->save();
+    }
+
+    private function isReadyToLearn(): bool
+    {
+        $distinct = count((array) ($this->correct_modes ?? []));
+        $threshold = (int) ($this->required_correct ?: self::LEARN_THRESHOLD);
+
+        return $distinct >= $threshold;
     }
 }
