@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\FlashcardController;
+use App\Http\Controllers\LearnController;
 use App\Http\Controllers\StudyController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,8 @@ Route::post('flashcards/reset', [FlashcardController::class, 'reset'])->name('fl
 Route::get('flashcards/{flashcard}/edit', [FlashcardController::class, 'edit'])->name('flashcards.edit');
 Route::patch('flashcards/{flashcard}', [FlashcardController::class, 'update'])->name('flashcards.update');
 Route::delete('flashcards/{flashcard}', [FlashcardController::class, 'destroy'])->name('flashcards.destroy');
+
+Route::get('learn', [LearnController::class, 'show'])->name('learn.show');
 
 Route::get('study', [StudyController::class, 'show'])->name('study.show');
 Route::post('study/{flashcard}/answer', [StudyController::class, 'answer'])->name('study.answer');

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { GraduationCap, Layers, Plus } from 'lucide-react';
+import { BookOpen, GraduationCap, Layers, Plus } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import {
@@ -12,6 +12,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import flashcards from '@/routes/flashcards';
+import learn from '@/routes/learn';
 import study from '@/routes/study';
 import type { NavItem } from '@/types';
 
@@ -28,6 +29,11 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Изучение',
+        href: learn.show().url,
+        icon: BookOpen,
+    },
+    {
+        title: 'Проверка',
         href: study.show().url,
         icon: GraduationCap,
     },

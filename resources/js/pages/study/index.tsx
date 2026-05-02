@@ -115,7 +115,7 @@ function Wrapper({
 
     return (
         <>
-            <Head title="Изучение" />
+            <Head title="Проверка" />
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-6 sm:px-6 sm:pt-6">
                 <div
                     className={cn(
@@ -192,7 +192,7 @@ function Wrapper({
 function EmptyState({ stats }: { stats: FlashcardStats }) {
     return (
         <>
-            <Head title="Изучение" />
+            <Head title="Проверка" />
             <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 pt-12 pb-6 sm:px-6">
                 <Card className="w-full">
                     <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
