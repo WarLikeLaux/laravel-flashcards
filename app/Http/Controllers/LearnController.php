@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
+use App\Models\FlashcardEvent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +42,12 @@ class LearnController extends Controller
     public function studied(Request $request, Flashcard $flashcard): RedirectResponse
     {
         $flashcard->markStudied();
+
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'studied',
+            'occurred_at' => now(),
+        ]);
 
         $params = array_filter([
             'exclude' => $flashcard->id,

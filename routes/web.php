@@ -3,6 +3,7 @@
 use App\Http\Controllers\FlashcardController;
 use App\Http\Controllers\LearnController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StudyController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,3 +28,5 @@ Route::get('review', [ReviewController::class, 'show'])->name('review.show');
 Route::post('review/reset', [ReviewController::class, 'reset'])->name('review.reset');
 Route::post('review/{flashcard}/remember', [ReviewController::class, 'remember'])->name('review.remember');
 Route::post('review/{flashcard}/forgot', [ReviewController::class, 'forgot'])->name('review.forgot');
+
+Route::get('stats', [StatsController::class, 'show'])->name('stats.show');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
+use App\Models\FlashcardEvent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,12 @@ class ReviewController extends Controller
     {
         $this->markSeen($request, $flashcard->id);
 
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'review_remember',
+            'occurred_at' => now(),
+        ]);
+
         return redirect()->route('review.show');
     }
 
@@ -55,6 +62,12 @@ class ReviewController extends Controller
     {
         $flashcard->markIncorrect();
         $this->markSeen($request, $flashcard->id);
+
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'review_forgot',
+            'occurred_at' => now(),
+        ]);
 
         return redirect()->route('review.show');
     }

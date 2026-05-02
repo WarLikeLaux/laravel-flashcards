@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Flashcard;
+use App\Models\FlashcardEvent;
 
 it('renders the learn page with an unstudied flashcard', function (): void {
     Flashcard::factory()->unstudied()->count(3)->create(['category' => 'PHP']);
@@ -61,6 +62,18 @@ it('marks a card as studied via the studied endpoint', function (): void {
         ->assertRedirect();
 
     expect($card->fresh()->studied)->toBeTrue();
+});
+
+it('logs a studied event when a card is marked studied', function (): void {
+    $card = Flashcard::factory()->unstudied()->create();
+
+    $this->post(route('learn.studied', $card))->assertRedirect();
+
+    $event = FlashcardEvent::query()->latest('id')->first();
+    expect($event)->not->toBeNull()
+        ->and($event->flashcard_id)->toBe($card->id)
+        ->and($event->kind)->toBe('studied')
+        ->and($event->occurred_at)->not->toBeNull();
 });
 
 it('shows empty state when no unstudied cards remain', function (): void {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
+use App\Models\FlashcardEvent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\Rule;
@@ -82,6 +83,13 @@ class StudyController extends Controller
             ? $flashcard->markCorrect($data['mode'] ?? null)
             : $flashcard->markIncorrect();
 
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => $data['result'] === 'correct' ? 'study_correct' : 'study_incorrect',
+            'mode' => $data['mode'] ?? null,
+            'occurred_at' => now(),
+        ]);
+
         return redirect()->route('study.show');
     }
 
@@ -102,6 +110,14 @@ class StudyController extends Controller
             $pair['question_id'] === $pair['answer_id']
                 ? $card->markCorrect('matching')
                 : $card->markIncorrect();
+
+            FlashcardEvent::create([
+                'flashcard_id' => $card->id,
+                'kind' => $pair['question_id'] === $pair['answer_id']
+                    ? 'matching_correct'
+                    : 'matching_incorrect',
+                'occurred_at' => now(),
+            ]);
         }
 
         return redirect()->route('study.show');
