@@ -29,6 +29,7 @@ class Flashcard extends Model
         'correct_modes',
         'required_correct',
         'is_learned',
+        'studied',
     ];
 
     protected $casts = [
@@ -38,6 +39,7 @@ class Flashcard extends Model
         'correct_streak' => 'integer',
         'required_correct' => 'integer',
         'is_learned' => 'boolean',
+        'studied' => 'boolean',
     ];
 
     protected $attributes = [
@@ -45,11 +47,23 @@ class Flashcard extends Model
         'correct_streak' => 0,
         'required_correct' => self::LEARN_THRESHOLD,
         'is_learned' => false,
+        'studied' => false,
     ];
 
     public function scopeDue(Builder $query): Builder
     {
-        return $query->where('is_learned', false);
+        return $query->where('studied', true)->where('is_learned', false);
+    }
+
+    public function scopeUnstudied(Builder $query): Builder
+    {
+        return $query->where('studied', false);
+    }
+
+    public function markStudied(): void
+    {
+        $this->studied = true;
+        $this->save();
     }
 
     public function markCorrect(?string $mode = null): void
@@ -84,6 +98,7 @@ class Flashcard extends Model
         $this->correct_streak = 0;
         $this->correct_modes = [];
         $this->is_learned = false;
+        $this->studied = false;
         $this->save();
     }
 

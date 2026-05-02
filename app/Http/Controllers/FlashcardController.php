@@ -104,6 +104,7 @@ class FlashcardController extends Controller
             'correct_modes' => null,
             'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => false,
+            'studied' => false,
         ]);
 
         return redirect()->route('flashcards.index');

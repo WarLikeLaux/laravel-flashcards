@@ -29,7 +29,13 @@ class FlashcardFactory extends Factory
             'correct_modes' => null,
             'required_correct' => Flashcard::LEARN_THRESHOLD,
             'is_learned' => false,
+            'studied' => true,
         ];
+    }
+
+    public function unstudied(): self
+    {
+        return $this->state(fn () => ['studied' => false]);
     }
 
     public function withCode(?string $code = null, string $language = 'php'): self

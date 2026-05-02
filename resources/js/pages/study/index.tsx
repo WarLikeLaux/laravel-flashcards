@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { PartyPopper, Plus, RotateCcw } from 'lucide-react';
+import { BookOpen, PartyPopper, Plus, RotateCcw } from 'lucide-react';
 import { AssembleMode } from '@/components/study/assemble-mode';
 import { ClozeMode } from '@/components/study/cloze-mode';
 import { MatchingMode } from '@/components/study/matching-mode';
@@ -18,6 +18,7 @@ import {
 import { studyModeMeta } from '@/lib/study-modes';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
+import learn from '@/routes/learn';
 import type {
     Flashcard,
     FlashcardStats,
@@ -190,13 +191,17 @@ function Wrapper({
 }
 
 function EmptyState({ stats }: { stats: FlashcardStats }) {
+    const noCards = stats.total === 0;
+    const allLearned = !noCards && stats.learned === stats.total;
+    const nothingStudied = !noCards && !allLearned && stats.due === 0;
+
     return (
         <>
             <Head title="Проверка" />
             <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 pt-12 pb-6 sm:px-6">
                 <Card className="w-full">
                     <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                        {stats.total === 0 ? (
+                        {noCards && (
                             <>
                                 <CardTitle>Пока нечего учить</CardTitle>
                                 <CardDescription>
@@ -209,7 +214,24 @@ function EmptyState({ stats }: { stats: FlashcardStats }) {
                                     </Link>
                                 </Button>
                             </>
-                        ) : (
+                        )}
+                        {nothingStudied && (
+                            <>
+                                <BookOpen className="size-10 text-primary" />
+                                <CardTitle>Сначала изучи карточки</CardTitle>
+                                <CardDescription>
+                                    В проверку попадают карточки, которые ты
+                                    отметил как «Изучил». Открой режим изучения
+                                    и пройдись по новым карточкам.
+                                </CardDescription>
+                                <Button asChild>
+                                    <Link href={learn.show().url}>
+                                        <BookOpen />К изучению
+                                    </Link>
+                                </Button>
+                            </>
+                        )}
+                        {allLearned && (
                             <>
                                 <PartyPopper className="size-10 text-primary" />
                                 <CardTitle>Все карточки выучены</CardTitle>

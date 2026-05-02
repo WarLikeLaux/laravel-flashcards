@@ -1,5 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowRight, BookOpen, GraduationCap, Plus } from 'lucide-react';
+import { Form, Head, Link, router } from '@inertiajs/react';
+import { ArrowRight, BookOpen, Check, GraduationCap, Plus } from 'lucide-react';
 import { CategoryBadge } from '@/components/category-badge';
 import { CodeBlock } from '@/components/code-block';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,8 @@ type Filters = {
 
 type Stats = {
     total: number;
+    unstudied: number;
+    studied: number;
     learned: number;
 };
 
@@ -84,8 +86,16 @@ export default function LearnIndex({
                         <Badge
                             variant="outline"
                             className="bg-background/60 tabular-nums"
+                            title="Не изучено / всего"
                         >
-                            {stats.learned}/{stats.total} выучено
+                            {stats.unstudied}/{stats.total} осталось
+                        </Badge>
+                        <Badge
+                            variant="outline"
+                            className="bg-background/60 tabular-nums"
+                            title="Готово к проверке"
+                        >
+                            {stats.studied} к проверке
                         </Badge>
                         <Button asChild size="sm" variant="outline">
                             <Link href={study.show().url}>
@@ -104,16 +114,36 @@ export default function LearnIndex({
                 />
 
                 {flashcard ? (
-                    <LearnCard flashcard={flashcard} />
+                    <LearnCard flashcard={flashcard} filters={filters} />
                 ) : (
-                    <EmptyState />
+                    <EmptyState stats={stats} />
                 )}
             </div>
         </>
     );
 }
 
-function LearnCard({ flashcard }: { flashcard: Flashcard }) {
+function LearnCard({
+    flashcard,
+    filters,
+}: {
+    flashcard: Flashcard;
+    filters: Filters;
+}) {
+    const studiedAction = `${learn.studied(flashcard.id).url}`;
+    const filterParams = new URLSearchParams();
+
+    if (filters.category && filters.category !== 'all') {
+        filterParams.set('category', filters.category);
+    }
+
+    if (filters.topic) {
+        filterParams.set('topic', filters.topic);
+    }
+
+    const filterQuery = filterParams.toString();
+    const filterSuffix = filterQuery ? `&${filterQuery}` : '';
+
     return (
         <Card>
             <CardHeader className="gap-2">
@@ -175,16 +205,40 @@ function LearnCard({ flashcard }: { flashcard: Flashcard }) {
                     />
                 )}
             </CardContent>
-            <CardFooter className="flex justify-end">
-                <Button asChild className="w-full sm:w-auto">
+            <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                <Button asChild variant="outline" className="w-full sm:w-auto">
                     <Link
-                        href={`${learn.show().url}?exclude=${flashcard.id}`}
+                        href={`${learn.show().url}?exclude=${flashcard.id}${filterSuffix}`}
                         preserveScroll={false}
                     >
                         Дальше
                         <ArrowRight />
                     </Link>
                 </Button>
+                <Form
+                    action={studiedAction}
+                    method="post"
+                    className="w-full sm:w-auto"
+                >
+                    {filters.category && filters.category !== 'all' && (
+                        <input
+                            type="hidden"
+                            name="category"
+                            value={filters.category}
+                        />
+                    )}
+                    {filters.topic && (
+                        <input
+                            type="hidden"
+                            name="topic"
+                            value={filters.topic}
+                        />
+                    )}
+                    <Button type="submit" className="w-full sm:w-auto">
+                        <Check />
+                        Изучил
+                    </Button>
+                </Form>
             </CardFooter>
         </Card>
     );
@@ -315,25 +369,45 @@ function CategoryFilter({
     );
 }
 
-function EmptyState() {
+function EmptyState({ stats }: { stats: Stats }) {
+    const noCards = stats.total === 0;
+    const allStudied = !noCards && stats.unstudied === 0;
+
     return (
         <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                <CardTitle>Нет карточек по фильтрам</CardTitle>
-                <CardDescription>
-                    Сбрось фильтры или добавь первую карточку.
-                </CardDescription>
-                <div className="flex gap-2">
-                    <Button asChild variant="outline">
-                        <Link href={learn.show().url}>Сбросить</Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href={flashcards.create().url}>
-                            <Plus />
-                            Добавить
-                        </Link>
-                    </Button>
-                </div>
+                {noCards && (
+                    <>
+                        <CardTitle>Нет карточек по фильтрам</CardTitle>
+                        <CardDescription>
+                            Сбрось фильтры или добавь первую карточку.
+                        </CardDescription>
+                        <div className="flex gap-2">
+                            <Button asChild variant="outline">
+                                <Link href={learn.show().url}>Сбросить</Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href={flashcards.create().url}>
+                                    <Plus />
+                                    Добавить
+                                </Link>
+                            </Button>
+                        </div>
+                    </>
+                )}
+                {allStudied && (
+                    <>
+                        <CardTitle>Все карточки изучены</CardTitle>
+                        <CardDescription>
+                            Переходи к проверке, чтобы закрепить материал.
+                        </CardDescription>
+                        <Button asChild>
+                            <Link href={study.show().url}>
+                                <GraduationCap />К проверке
+                            </Link>
+                        </Button>
+                    </>
+                )}
             </CardContent>
         </Card>
     );

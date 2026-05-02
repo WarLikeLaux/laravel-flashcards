@@ -69,11 +69,22 @@ it('resets progress fully', function (): void {
         ->and($card->is_learned)->toBeFalse();
 });
 
-it('scopes due to non-learned cards', function (): void {
+it('scopes due to non-learned, studied cards', function (): void {
     Flashcard::factory()->create();
     Flashcard::factory()->learned()->create();
+    Flashcard::factory()->unstudied()->create();
 
     expect(Flashcard::query()->due()->count())->toBe(1);
+});
+
+it('marks a card as studied', function (): void {
+    $card = Flashcard::factory()->unstudied()->create();
+
+    expect($card->studied)->toBeFalse();
+
+    $card->markStudied();
+
+    expect($card->fresh()->studied)->toBeTrue();
 });
 
 it('honors a custom required_correct threshold', function (): void {

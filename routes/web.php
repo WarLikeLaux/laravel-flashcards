@@ -16,6 +16,7 @@ Route::patch('flashcards/{flashcard}', [FlashcardController::class, 'update'])->
 Route::delete('flashcards/{flashcard}', [FlashcardController::class, 'destroy'])->name('flashcards.destroy');
 
 Route::get('learn', [LearnController::class, 'show'])->name('learn.show');
+Route::post('learn/{flashcard}/studied', [LearnController::class, 'studied'])->name('learn.studied');
 
 Route::get('study', [StudyController::class, 'show'])->name('study.show');
 Route::post('study/{flashcard}/answer', [StudyController::class, 'answer'])->name('study.answer');

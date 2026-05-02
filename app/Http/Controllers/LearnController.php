@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,7 +16,7 @@ class LearnController extends Controller
         'question', 'answer',
         'code_example', 'code_language',
         'cloze_text', 'short_answer', 'assemble_chunks',
-        'is_learned',
+        'is_learned', 'studied',
     ];
 
     public function show(Request $request): Response
@@ -26,19 +27,10 @@ class LearnController extends Controller
 
         $flashcard = $this->pickCard($excludeId, $category, $topic);
 
-        $stats = $this->stats($category, $topic);
-        $categories = Flashcard::query()
-            ->whereNotNull('category')
-            ->select('category')
-            ->groupBy('category')
-            ->orderBy('category')
-            ->pluck('category')
-            ->all();
-
         return Inertia::render('learn/index', [
             'flashcard' => $flashcard?->only(self::FIELDS),
-            'stats' => $stats,
-            'categories' => $categories,
+            'stats' => $this->stats($category, $topic),
+            'categories' => $this->categories(),
             'filters' => [
                 'category' => $category === '' ? 'all' : $category,
                 'topic' => $topic === '' ? null : $topic,
@@ -46,10 +38,23 @@ class LearnController extends Controller
         ]);
     }
 
+    public function studied(Request $request, Flashcard $flashcard): RedirectResponse
+    {
+        $flashcard->markStudied();
+
+        $params = array_filter([
+            'exclude' => $flashcard->id,
+            'category' => $request->input('category'),
+            'topic' => $request->input('topic'),
+        ]);
+
+        return redirect()->route('learn.show', $params);
+    }
+
     private function pickCard(?int $excludeId, string $category, string $topic): ?Flashcard
     {
         $build = function () use ($excludeId, $category, $topic): Builder {
-            $q = Flashcard::query();
+            $q = Flashcard::query()->unstudied();
             if ($excludeId !== null) {
                 $q->where('id', '!=', $excludeId);
             }
@@ -63,31 +68,54 @@ class LearnController extends Controller
             return $q;
         };
 
-        $card = $build()->inRandomOrder()->first();
+        $minDifficulty = $build()->min('difficulty');
 
-        if ($card === null && $excludeId !== null) {
-            return $this->pickCard(null, $category, $topic);
+        if ($minDifficulty === null) {
+            return $excludeId !== null ? $this->pickCard(null, $category, $topic) : null;
         }
 
-        return $card;
+        return $build()
+            ->where('difficulty', $minDifficulty)
+            ->inRandomOrder()
+            ->first();
     }
 
     /**
-     * @return array{total: int, learned: int}
+     * @return array{total: int, unstudied: int, studied: int, learned: int}
      */
     private function stats(string $category, string $topic): array
     {
-        $q = Flashcard::query();
-        if ($category !== '') {
-            $q->where('category', $category);
-        }
-        if ($topic !== '') {
-            $q->where('topic', $topic);
-        }
+        $base = function () use ($category, $topic): Builder {
+            $q = Flashcard::query();
+            if ($category !== '') {
+                $q->where('category', $category);
+            }
+            if ($topic !== '') {
+                $q->where('topic', $topic);
+            }
 
-        $total = (clone $q)->count();
-        $learned = (clone $q)->where('is_learned', true)->count();
+            return $q;
+        };
 
-        return ['total' => $total, 'learned' => $learned];
+        return [
+            'total' => $base()->count(),
+            'unstudied' => $base()->where('studied', false)->count(),
+            'studied' => $base()->where('studied', true)->count(),
+            'learned' => $base()->where('is_learned', true)->count(),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function categories(): array
+    {
+        return Flashcard::query()
+            ->whereNotNull('category')
+            ->select('category')
+            ->groupBy('category')
+            ->orderBy('category')
+            ->pluck('category')
+            ->all();
     }
 }
