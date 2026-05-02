@@ -22,6 +22,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import review from '@/routes/review';
@@ -118,9 +119,10 @@ function ReviewCard({
                     {flashcard.topic && (
                         <Badge
                             variant="outline"
-                            className="font-mono text-[10px]"
+                            className="text-[10px]"
+                            title={flashcard.topic}
                         >
-                            {flashcard.topic}
+                            {topicLabel(flashcard.topic)}
                         </Badge>
                     )}
                     <Badge

@@ -12,6 +12,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import learn from '@/routes/learn';
@@ -153,9 +154,10 @@ function LearnCard({
                     {flashcard.topic && (
                         <Badge
                             variant="outline"
-                            className="font-mono text-[10px]"
+                            className="text-[10px]"
+                            title={flashcard.topic}
                         >
-                            {flashcard.topic}
+                            {topicLabel(flashcard.topic)}
                         </Badge>
                     )}
                     {flashcard.is_learned && (
@@ -350,11 +352,8 @@ function CategoryFilter({
                 </button>
             ))}
             {topic && (
-                <Badge
-                    variant="outline"
-                    className="gap-1 font-mono text-[10px]"
-                >
-                    {topic}
+                <Badge variant="outline" className="gap-1 text-[10px]">
+                    {topicLabel(topic)}
                     <button
                         type="button"
                         onClick={onClearTopic}

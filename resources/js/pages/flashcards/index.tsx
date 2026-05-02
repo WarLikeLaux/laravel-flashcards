@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { categoryStyle } from '@/lib/category-colors';
+import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import study from '@/routes/study';
@@ -605,6 +606,15 @@ function FlashcardCard({ card }: { card: Flashcard }) {
                     <div className="flex flex-wrap items-center gap-2">
                         <CategoryBadge category={card.category} />
                         <DifficultyBadge level={card.difficulty} />
+                        {card.topic && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px]"
+                                title={card.topic}
+                            >
+                                {topicLabel(card.topic)}
+                            </Badge>
+                        )}
                         {card.is_learned ? (
                             <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                                 выучено
