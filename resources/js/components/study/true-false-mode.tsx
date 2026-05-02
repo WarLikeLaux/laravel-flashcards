@@ -1,8 +1,8 @@
 import { Check, X } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
-import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
+import { VerdictActions } from '@/components/study/verdict-actions';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -72,7 +72,13 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                 )}
             </CardContent>
             <Separator />
-            <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <CardFooter
+                className={cn(
+                    verdict === null
+                        ? 'grid grid-cols-2 gap-2 sm:flex sm:justify-end'
+                        : '',
+                )}
+            >
                 {verdict === null ? (
                     <>
                         <Button
@@ -95,21 +101,10 @@ export function TrueFalseMode({ flashcard, shown }: Props) {
                     </>
                 ) : (
                     userResult && (
-                        <AnswerForm
+                        <VerdictActions
                             flashcardId={flashcard.id}
-                            result={userResult}
                             mode="true_false"
-                            label={
-                                userResult === 'correct'
-                                    ? 'Верно · Дальше'
-                                    : 'Ошибка · Дальше'
-                            }
-                            variant={
-                                userResult === 'correct'
-                                    ? 'default'
-                                    : 'destructive'
-                            }
-                            fullWidthOnMobile
+                            result={userResult}
                         />
                     )
                 )}

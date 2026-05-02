@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
-import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
+import { VerdictActions } from '@/components/study/verdict-actions';
 import {
     Card,
     CardContent,
@@ -79,22 +79,11 @@ export function MultipleChoiceMode({ flashcard, options }: Props) {
             {userResult && (
                 <>
                     <Separator />
-                    <CardFooter className="flex justify-end">
-                        <AnswerForm
+                    <CardFooter>
+                        <VerdictActions
                             flashcardId={flashcard.id}
-                            result={userResult}
                             mode="multiple_choice"
-                            label={
-                                userResult === 'correct'
-                                    ? 'Верно · Дальше'
-                                    : 'Ошибка · Дальше'
-                            }
-                            variant={
-                                userResult === 'correct'
-                                    ? 'default'
-                                    : 'destructive'
-                            }
-                            fullWidthOnMobile
+                            result={userResult}
                         />
                     </CardFooter>
                 </>

@@ -1,8 +1,7 @@
-import { Check, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
-import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
+import { VerdictActions } from '@/components/study/verdict-actions';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -151,7 +150,7 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
                 )}
             </CardContent>
             <Separator />
-            <CardFooter className="flex justify-end">
+            <CardFooter className={cn(!checked && 'flex justify-end')}>
                 {!checked ? (
                     <Button
                         type="button"
@@ -162,16 +161,10 @@ export function ClozeMode({ flashcard }: { flashcard: Flashcard }) {
                         Проверить
                     </Button>
                 ) : (
-                    <AnswerForm
+                    <VerdictActions
                         flashcardId={flashcard.id}
-                        result={allCorrect ? 'correct' : 'incorrect'}
                         mode="cloze"
-                        label={
-                            allCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'
-                        }
-                        variant={allCorrect ? 'default' : 'destructive'}
-                        icon={allCorrect ? <Check /> : <X />}
-                        fullWidthOnMobile
+                        result={allCorrect ? 'correct' : 'incorrect'}
                     />
                 )}
             </CardFooter>

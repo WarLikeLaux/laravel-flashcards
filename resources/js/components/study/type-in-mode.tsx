@@ -1,8 +1,7 @@
-import { Check, X } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
-import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
+import { VerdictActions } from '@/components/study/verdict-actions';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -99,7 +98,7 @@ export function TypeInMode({ flashcard }: { flashcard: Flashcard }) {
                 )}
             </CardContent>
             <Separator />
-            <CardFooter className="flex justify-end">
+            <CardFooter className={cn(!checked && 'flex justify-end')}>
                 {!checked ? (
                     <Button
                         type="button"
@@ -110,14 +109,10 @@ export function TypeInMode({ flashcard }: { flashcard: Flashcard }) {
                         Проверить
                     </Button>
                 ) : (
-                    <AnswerForm
+                    <VerdictActions
                         flashcardId={flashcard.id}
-                        result={isCorrect ? 'correct' : 'incorrect'}
                         mode="type_in"
-                        label={isCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'}
-                        variant={isCorrect ? 'default' : 'destructive'}
-                        icon={isCorrect ? <Check /> : <X />}
-                        fullWidthOnMobile
+                        result={isCorrect ? 'correct' : 'incorrect'}
                     />
                 )}
             </CardFooter>

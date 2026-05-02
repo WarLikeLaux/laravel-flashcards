@@ -1,4 +1,5 @@
-import { Check, Eye, X } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Check, Eye, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
 import { AnswerForm } from '@/components/study/answer-form';
@@ -12,6 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import study from '@/routes/study';
 import type { Flashcard } from '@/types';
 
 export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
@@ -51,7 +53,7 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
             {revealed && (
                 <>
                     <Separator />
-                    <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                    <CardFooter className="grid grid-cols-3 gap-2 sm:flex sm:justify-end">
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="incorrect"
@@ -61,6 +63,20 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
                             icon={<X />}
                             fullWidthOnMobile
                         />
+                        <Button
+                            asChild
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                        >
+                            <Link
+                                href={`${study.show().url}?exclude=${flashcard.id}`}
+                                preserveScroll={false}
+                            >
+                                <RotateCcw />
+                                Повторить
+                            </Link>
+                        </Button>
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="correct"

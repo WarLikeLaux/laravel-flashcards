@@ -1,8 +1,8 @@
-import { Check, RotateCcw, Undo2, X } from 'lucide-react';
+import { RotateCcw, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
-import { AnswerForm } from '@/components/study/answer-form';
 import { CardCode } from '@/components/study/card-code';
+import { VerdictActions } from '@/components/study/verdict-actions';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -129,7 +129,7 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                 )}
             </CardContent>
             <Separator />
-            <CardFooter className="flex justify-end">
+            <CardFooter className={cn(!checked && 'flex justify-end')}>
                 {!checked ? (
                     <Button
                         type="button"
@@ -140,14 +140,10 @@ export function AssembleMode({ flashcard, assemble }: Props) {
                         Проверить
                     </Button>
                 ) : (
-                    <AnswerForm
+                    <VerdictActions
                         flashcardId={flashcard.id}
-                        result={isCorrect ? 'correct' : 'incorrect'}
                         mode="assemble"
-                        label={isCorrect ? 'Верно · Дальше' : 'Ошибка · Дальше'}
-                        variant={isCorrect ? 'default' : 'destructive'}
-                        icon={isCorrect ? <Check /> : <X />}
-                        fullWidthOnMobile
+                        result={isCorrect ? 'correct' : 'incorrect'}
                     />
                 )}
             </CardFooter>

@@ -26,6 +26,8 @@ class StudyController extends Controller
 
     public function show(): Response
     {
+        $excludeId = request()->integer('exclude') ?: null;
+
         $matching = $this->buildMatching();
 
         if ($matching !== null && random_int(1, 5) === 1) {
@@ -40,7 +42,7 @@ class StudyController extends Controller
             ]);
         }
 
-        $flashcard = $this->pickDueCard();
+        $flashcard = $this->pickDueCard($excludeId);
 
         if ($flashcard === null) {
             return Inertia::render('study/index', [
@@ -104,16 +106,24 @@ class StudyController extends Controller
         return redirect()->route('study.show');
     }
 
-    private function pickDueCard(): ?Flashcard
+    private function pickDueCard(?int $excludeId = null): ?Flashcard
     {
-        $minDifficulty = Flashcard::query()->due()->min('difficulty');
+        $build = function () use ($excludeId): Builder {
+            $q = Flashcard::query()->due();
+            if ($excludeId !== null) {
+                $q->where('id', '!=', $excludeId);
+            }
+
+            return $q;
+        };
+
+        $minDifficulty = $build()->min('difficulty');
 
         if ($minDifficulty === null) {
-            return null;
+            return $excludeId !== null ? $this->pickDueCard(null) : null;
         }
 
-        return Flashcard::query()
-            ->due()
+        return $build()
             ->where('difficulty', $minDifficulty)
             ->inRandomOrder()
             ->first();
