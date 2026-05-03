@@ -183,11 +183,14 @@ $result = app(Pipeline::class)
                 'answer' => 'Macroable - это трейт, позволяющий добавлять кастомные методы в классы Laravel runtime через ::macro(). Простыми словами: можно расширять Collection, Str, Request, Response своими методами. Регистрируется в Service Provider boot().',
                 'code_example' => 'use Illuminate\Support\Str;
 
-Str::macro(\'isUuid\', function ($value) {
-    return preg_match(\'/^[0-9a-f-]{36}$/i\', $value) === 1;
+// Имя должно быть НОВЫМ - Macroable работает через __callStatic / __call,
+// а это срабатывает только когда метода ещё нет. Например, Str::isUuid()
+// уже существует в ядре, поэтому макрос с таким именем стал бы мёртвым кодом.
+Str::macro(\'isHexColor\', function ($value) {
+    return preg_match(\'/^#[0-9a-f]{3}([0-9a-f]{3})?$/i\', $value) === 1;
 });
 
-Str::isUuid(\'550e8400-...\'); // true
+Str::isHexColor(\'#1abc9c\'); // true
 
 Collection::macro(\'toUpper\', function () {
     return $this->map(fn($v) => strtoupper($v));

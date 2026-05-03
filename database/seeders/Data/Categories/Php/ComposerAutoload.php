@@ -1515,7 +1515,7 @@ pm.max_requests = 1000',
             [
                 'category' => 'PHP',
                 'question' => 'Как защититься от инъекций при сборке SQL вручную и почему prepared statements решают проблему?',
-                'answer' => 'Prepared statements отделяют шаблон запроса от данных: драйвер парсит SQL один раз и подставляет значения как параметры на стороне сервера. Это исключает интерпретацию пользовательского ввода как кода. Эмулированные prepares (PDO::ATTR_EMULATE_PREPARES=true) на самом деле подставляют значения в шаблон на стороне клиента - безопасно, но теряются проверки типов и planning-cache. В проде включайте настоящие prepares.',
+                'answer' => 'Prepared statements отделяют шаблон запроса от данных: драйвер парсит SQL один раз и подставляет значения как параметры на стороне сервера. Это исключает интерпретацию пользовательского ввода как кода. Эмулированные prepares (PDO::ATTR_EMULATE_PREPARES=true) на самом деле подставляют значения в шаблон на стороне клиента - безопасно от инъекций (PDO правильно экранирует), но теряются проверки типов и planning-cache. По умолчанию обычно лучше native prepares (быстрее, типобезопаснее). ИСКЛЮЧЕНИЕ: при работе через PgBouncer в transaction pooling режиме native prepared statements ломаются (server-side PREPARE привязан к физическому соединению, которое PgBouncer передаёт другому клиенту между PREPARE и EXECUTE) - там нужен либо EMULATE_PREPARES=true, либо PgBouncer 1.21+/1.22+ с max_prepared_statements > 0. См. отдельную карточку про PgBouncer + Laravel.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,

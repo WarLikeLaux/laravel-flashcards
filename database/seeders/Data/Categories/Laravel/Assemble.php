@@ -36,7 +36,7 @@ class Assemble
             [
                 'category' => 'Laravel',
                 'question' => 'Собери транзакцию с retry на 3 попытки.',
-                'answer' => 'DB::transaction(closure, attempts) сам ретраит на deadlock-исключениях.',
+                'answer' => 'DB::transaction(closure, attempts: N) сам повторяет транзакцию при ошибках конкуренции (deadlock, serialization failure, lock wait timeout - всё, что ConcurrencyErrorDetector считает таковым). На constraint violation, syntax error и обычный QueryException ретрая нет - исключение пробрасывается сразу.',
                 'assemble_chunks' => [
                     'DB::',
                     'transaction(function () {',

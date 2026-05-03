@@ -10,7 +10,7 @@ class Cloze
             [
                 'category' => 'PHP',
                 'question' => 'Заполни сигнатуру readonly value-object Money с конструктором.',
-                'answer' => 'final readonly class фиксирует иммутабельность всех нестатических свойств. Promoted parameters позволяют объявить и инициализировать поля одной строкой.',
+                'answer' => 'final readonly class (PHP 8.2+) делает все нестатические свойства readonly: после первой записи их нельзя переприсвоить. Это НЕ deep immutability - объект, лежащий в readonly-свойстве, может менять своё внутреннее состояние (interior mutability), readonly запрещает только повторное присваивание самого свойства. Для глубокой иммутабельности нужно, чтобы все вложенные объекты тоже были immutable. Promoted parameters позволяют объявить и инициализировать поля одной строкой.',
                 'cloze_text' => 'final {{readonly}} class Money {
     public function __construct(
         public {{int}} $amount,
@@ -39,10 +39,16 @@ class Cloze
                 'answer' => 'yield делает функцию ленивым итератором: на каждой итерации читается одна строка, а не весь файл целиком.',
                 'cloze_text' => 'function readCsv(string $path): {{Generator}} {
     $h = fopen($path, "r");
-    while (($row = fgetcsv($h)) !== false) {
-        {{yield}} $row;
+    if ($h === false) {
+        throw new RuntimeException("Cannot open file");
     }
-    fclose($h);
+    try {
+        while (($row = fgetcsv($h)) !== false) {
+            {{yield}} $row;
+        }
+    } finally {
+        fclose($h);
+    }
 }',
                 'difficulty' => 3,
                 'topic' => 'php.cloze',

@@ -13,7 +13,7 @@ class EloquentRelations
             [
                 'category' => 'Laravel',
                 'question' => 'Какие виды связей в Eloquent? Опиши hasOne, hasMany, belongsTo, belongsToMany.',
-                'answer' => 'hasOne - один-к-одному (User имеет один Profile). hasMany - один-ко-многим (User имеет много Posts). belongsTo - обратная сторона (Post принадлежит User). belongsToMany - многие-ко-многим через pivot-таблицу (User-Roles).',
+                'answer' => 'hasOne - один-к-одному, объявляется на родительской модели; внешний ключ лежит в СВЯЗАННОЙ таблице (User имеет один Profile, profiles.user_id). hasMany - один-ко-многим, та же сторона/FK (User имеет много Posts, posts.user_id). belongsTo - inverse для hasOne/hasMany, объявляется на ДОЧЕРНЕЙ модели, у которой хранится внешний ключ на родителя (Post принадлежит User, posts.user_id). belongsToMany - многие-ко-многим через pivot-таблицу (User ↔ Role через role_user). Запомнить: belongsTo там, где FK; hasOne/hasMany - на противоположной стороне.',
                 'code_example' => 'class User extends Model {
     public function profile() { return $this->hasOne(Profile::class); }
     public function posts()   { return $this->hasMany(Post::class); }

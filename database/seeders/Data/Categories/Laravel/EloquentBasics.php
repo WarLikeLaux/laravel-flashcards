@@ -76,19 +76,27 @@ $user->delete();',
                 'category' => 'Laravel',
                 'question' => 'Как создать кастомный cast?',
                 'answer' => 'Кастомный cast - это класс, реализующий CastsAttributes с методами get (как читать) и set (как сохранять). Удобно для Value Objects.',
-                'code_example' => 'class MoneyCast implements CastsAttributes {
+                'code_example' => '// Cast разворачивает ОДНО логическое поле "price" в ДВЕ физические колонки
+// price_amount (int) и price_currency (string). $key даст префикс "price".
+class MoneyCast implements CastsAttributes {
     public function get($model, $key, $value, $attributes): Money {
-        return new Money($value, $attributes[\'currency\'] ?? \'USD\');
+        // $value тут не используется: значения хранятся в price_amount / price_currency
+        return new Money(
+            (int)    $attributes["{$key}_amount"],
+            (string) $attributes["{$key}_currency"],
+        );
     }
 
     public function set($model, $key, $value, $attributes): array {
+        // Возвращаем те же ключи, какие читали - Laravel запишет их в БД
         return [
-            \'amount\' => $value->amount,
-            \'currency\' => $value->currency,
+            "{$key}_amount"   => $value->amount,
+            "{$key}_currency" => $value->currency,
         ];
     }
 }
 
+// В $casts ключ совпадает с префиксом колонок: price → price_amount, price_currency
 protected $casts = [\'price\' => MoneyCast::class];',
                 'code_language' => 'php',
                 'difficulty' => 4,
