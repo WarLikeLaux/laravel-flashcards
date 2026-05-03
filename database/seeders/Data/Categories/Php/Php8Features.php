@@ -281,7 +281,7 @@ class UserRepo implements Repository
             [
                 'category' => 'PHP',
                 'question' => 'Зачем нужна функция json_validate() (PHP 8.3)?',
-                'answer' => 'json_validate(string $json): bool - проверяет, что строка является валидным JSON, БЕЗ создания PHP-структуры в памяти. До PHP 8.3 единственный способ был json_decode + проверка json_last_error() (или json_decode($s, false, 512, JSON_THROW_ON_ERROR) с try/catch) - но это аллоцировало массив/объект под весь декодированный JSON. На больших payload-ах (мегабайты вебхуков, дампы) - бесполезный расход CPU и RAM, особенно в горячем пути или в долгоживущих воркерах. json_validate использует тот же парсер, что и json_decode, но останавливается, как только сделал проход - O(N) по времени, O(1) по памяти. Применение: rate-limiting роутов с большим JSON-телом, валидация webhook-ов перед очередью, фильтрация мусора на API gateway, проверка структуры до тяжёлой записи. Аргументы: $depth (макс. вложенность), $flags (поддерживаются JSON_THROW_ON_ERROR и JSON_INVALID_UTF8_IGNORE).',
+                'answer' => 'json_validate(string $json): bool - проверяет, что строка является валидным JSON, БЕЗ создания PHP-структуры в памяти. До PHP 8.3 единственный способ был json_decode + проверка json_last_error() (или json_decode($s, false, 512, JSON_THROW_ON_ERROR) с try/catch) - но это аллоцировало массив/объект под весь декодированный JSON. На больших payload-ах (мегабайты вебхуков, дампы) - бесполезный расход CPU и RAM, особенно в горячем пути или в долгоживущих воркерах. json_validate использует тот же парсер, что и json_decode, но останавливается, как только сделал проход - O(N) по времени, O(1) по памяти. Применение: rate-limiting роутов с большим JSON-телом, валидация webhook-ов перед очередью, фильтрация мусора на API gateway, проверка структуры до тяжёлой записи. Аргументы: $depth (макс. вложенность), $flags - из публичных флагов разрешён ТОЛЬКО JSON_INVALID_UTF8_IGNORE; передача JSON_THROW_ON_ERROR валит ValueError ("Argument #3 ($flags) must be a valid flag"), и это by design: смысл функции - вернуть bool без исключений и без аллокации, поэтому оборачивать json_validate в try/catch не нужно - используйте обычный if (!json_validate(...)).',
                 'code_example' => '<?php
 $payload = file_get_contents("php://input");
 
@@ -299,11 +299,14 @@ if (! json_validate($payload)) {
 // затем декодируем, когда уверены и реально нужен результат
 $data = json_decode($payload, true);
 
-// С исключением
-try {
-    json_validate("invalid", flags: JSON_THROW_ON_ERROR);
-} catch (JsonException $e) {
-    Log::warning("bad json", ["err" => $e->getMessage()]);
+// ❌ Так НЕ работает: json_validate запрещает JSON_THROW_ON_ERROR
+// и кинет ValueError, а не JsonException - try/catch бессмысленен
+// json_validate("invalid", flags: JSON_THROW_ON_ERROR);
+
+// ✅ Правильный способ - проверять bool
+if (! json_validate($payload)) {
+    Log::warning("bad json", ["payload_size" => strlen($payload)]);
+    return response("invalid json", 400);
 }
 
 // Бенчмарк: на 50 МБ JSON

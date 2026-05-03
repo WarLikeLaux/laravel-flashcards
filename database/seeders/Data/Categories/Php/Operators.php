@@ -10,7 +10,7 @@ class Operators
             [
                 'category' => 'PHP',
                 'question' => 'Как привести строку к числу в PHP?',
-                'answer' => 'Способов несколько: явное приведение через (int) или (float), функции intval()/floatval(), умножение на 1. Касты сами по себе не выдают warning - даже (int) "abc" вернёт 0. Но в АРИФМЕТИКЕ с PHP 8 нечисловая строка даёт Warning ("A non-numeric value encountered"), а полностью не-числовая строка ("abc" + 1) - TypeError. intval() принимает второй аргумент - систему счисления (base 2..36).',
+                'answer' => 'Способов несколько: явное приведение через (int) или (float), функции intval()/floatval(), умножение на 1. Касты сами по себе не выдают warning - даже (int) "abc" вернёт 0. В АРИФМЕТИКЕ с PHP 8 поведение зависит от типа строки (термины из спецификации PHP): leading-numeric / "non-well-formed numeric string" вроде "42abc" + 1 - даёт Warning "A non-numeric value encountered" и приводится к 42 (итог 43). Полностью нечисловая ("abc" + 1) - TypeError "Unsupported operand types: string + int". До PHP 8 оба случая были тихим Warning. intval() принимает второй аргумент - систему счисления (base 2..36).',
                 'code_example' => '<?php
 $str = "42abc";
 
