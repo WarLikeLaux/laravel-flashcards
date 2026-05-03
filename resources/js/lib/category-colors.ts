@@ -12,15 +12,15 @@ const palette: Record<string, CategoryStyle> = {
         badge: 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300',
         dot: 'bg-rose-500',
     },
-    OOP: {
+    'ООП': {
         badge: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
         dot: 'bg-amber-500',
     },
-    Database: {
+    'Базы данных': {
         badge: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
         dot: 'bg-emerald-500',
     },
-    'System Design': {
+    'Архитектура систем': {
         badge: 'border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300',
         dot: 'bg-violet-500',
     },

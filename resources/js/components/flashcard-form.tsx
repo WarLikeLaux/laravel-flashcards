@@ -116,7 +116,7 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
                             onChange={(e) =>
                                 form.setData('category', e.target.value)
                             }
-                            placeholder="PHP, Laravel, OOP, Database…"
+                            placeholder="PHP, Laravel, ООП, Базы данных, Архитектура систем"
                             autoComplete="off"
                         />
                         <datalist id="category-options">
