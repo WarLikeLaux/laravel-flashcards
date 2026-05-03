@@ -1,4 +1,4 @@
-import { Form } from '@inertiajs/react';
+import { Form, router } from '@inertiajs/react';
 import { Check, Eye, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
@@ -13,11 +13,37 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import study from '@/routes/study';
 import type { Flashcard } from '@/types';
 
 export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
     const [revealed, setRevealed] = useState(false);
+
+    useKeyboardShortcut(' ', () => setRevealed(true), !revealed);
+    useKeyboardShortcut(
+        '1',
+        () =>
+            router.post(study.answer(flashcard.id).url, {
+                result: 'incorrect',
+                mode: 'reveal',
+            }),
+        revealed,
+    );
+    useKeyboardShortcut(
+        '2',
+        () => router.post(study.skip(flashcard.id).url),
+        revealed,
+    );
+    useKeyboardShortcut(
+        '3',
+        () =>
+            router.post(study.answer(flashcard.id).url, {
+                result: 'correct',
+                mode: 'reveal',
+            }),
+        revealed,
+    );
 
     return (
         <Card>

@@ -49,17 +49,39 @@ class Mailer { public function sendTo(User $u) {} }',
 // Плохо: каждый новый тип - правка switch
 class AreaCalc
 {
-    public function area($shape): float
+    public function area(object $shape): float
     {
         if ($shape instanceof Circle) return M_PI * $shape->r ** 2;
         if ($shape instanceof Square) return $shape->side ** 2;
-        // добавили Triangle - правим класс
+        // добавили Triangle - правим этот класс
+        throw new \InvalidArgumentException(\'Unknown shape\');
     }
 }
 
-// Хорошо: новые фигуры - новые классы
-interface Shape {
+// Хорошо: новые фигуры - новые классы, AreaCalc не меняется
+interface Shape
+{
     public function area(): float;
+}
+
+class Circle implements Shape
+{
+    public function __construct(private float $r) {}
+    public function area(): float { return M_PI * $this->r ** 2; }
+}
+
+class Square implements Shape
+{
+    public function __construct(private float $side) {}
+    public function area(): float { return $this->side ** 2; }
+}
+
+class AreaCalcGood
+{
+    public function area(Shape $s): float
+    {
+        return $s->area(); // открыт для расширения, закрыт для модификации
+    }
 }',
                 'code_language' => 'php',
             ],
@@ -68,9 +90,33 @@ interface Shape {
                 'topic' => 'oop.solid',
                 'difficulty' => 3,
                 'question' => 'LSP - Liskov Substitution Principle (Принцип подстановки Лисков)',
-                'answer' => 'Объекты потомков должны быть подставимыми вместо объектов родителя без поломки программы. То есть наследник не должен сужать контракт родителя: не выбрасывать новые исключения, не требовать более строгих параметров, не возвращать менее специфичные значения. Нарушения LSP проявляются в проверках instanceof перед использованием объекта. Если наследник не может выполнить контракт родителя - это не его наследник.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Объекты потомков должны быть подставимыми вместо объектов родителя без поломки программы. Правила: 1) предусловия (требования к параметрам) можно ослаблять, но не усиливать (контравариантность). 2) постусловия (гарантии возвращаемого значения) можно усиливать, но не ослаблять (ковариантность). 3) инварианты родителя должны сохраняться. 4) наследник не должен бросать новые типы исключений, кроме подтипов уже объявленных. Признак нарушения LSP - проверки instanceof в клиентском коде перед использованием объекта. Если наследник не может выполнить контракт родителя - это не его наследник.',
+                'code_example' => '<?php
+class Bird
+{
+    public function fly(): void { /* летим */ }
+}
+
+// LSP нарушен: пингвин не умеет летать, но extends Bird
+class Penguin extends Bird
+{
+    public function fly(): void
+    {
+        throw new \LogicException(\'Пингвины не летают\');
+    }
+}
+
+function startFlight(Bird $bird): void
+{
+    $bird->fly(); // упадёт для Penguin - LSP нарушен
+}
+
+// Решение: разделить по способностям
+interface Bird2 {}
+interface FlyingBird extends Bird2 { public function fly(): void; }
+class Sparrow implements FlyingBird { public function fly(): void {} }
+class Penguin2 implements Bird2 {} // не FlyingBird',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',

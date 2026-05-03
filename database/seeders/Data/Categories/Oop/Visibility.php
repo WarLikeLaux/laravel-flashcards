@@ -12,7 +12,7 @@ class Visibility
                 'topic' => 'oop.visibility',
                 'difficulty' => 2,
                 'question' => 'Какие модификаторы видимости есть в PHP?',
-                'answer' => 'В PHP три модификатора видимости: 1) public - доступен везде (внутри класса, потомках, снаружи). 2) protected - доступен только внутри класса и его потомков. 3) private - доступен только внутри объявившего класса (даже потомки не видят). По умолчанию (если не указан) свойство/метод имеет видимость public. С PHP 8.4 появились asymmetric visibility для свойств (например, public read, private write).',
+                'answer' => 'В PHP три модификатора видимости: 1) public - доступен везде (внутри класса, потомках, снаружи). 2) protected - доступен только внутри класса и его потомков. 3) private - доступен только внутри объявившего класса (даже потомки не видят). По умолчанию (если не указан) свойство/метод имеет видимость public. С PHP 8.4 появилась asymmetric visibility для свойств: можно указать раздельную видимость для чтения и записи (например, public private(set) - читать всем, писать только внутри класса). Это устраняет необходимость в паре приватного поля + публичного геттера.',
                 'code_example' => '<?php
 class Example
 {
@@ -20,12 +20,17 @@ class Example
     protected string $protectedProp = \'видно в классе и потомках\';
     private string $privateProp = \'видно только в этом классе\';
 
+    // PHP 8.4: асимметричная видимость
+    public private(set) int $id = 0; // читать всем, писать только изнутри
+
     public function show(): void { /* доступ ко всем трём */ }
 }
 
 $e = new Example();
 echo $e->publicProp;    // OK
-// echo $e->privateProp; // Fatal error',
+echo $e->id;            // OK (read)
+// $e->id = 42;         // Error: write only inside class
+// echo $e->privateProp; // Error: private',
                 'code_language' => 'php',
             ],
             [

@@ -1,6 +1,7 @@
-import { Form } from '@inertiajs/react';
+import { Form, router } from '@inertiajs/react';
 import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { cn } from '@/lib/utils';
 import study from '@/routes/study';
 import type { StudyMode } from '@/types';
@@ -12,6 +13,11 @@ type Props = {
 };
 
 export function VerdictActions({ flashcardId, mode, result }: Props) {
+    useKeyboardShortcut('1', () => router.post(study.skip(flashcardId).url));
+    useKeyboardShortcut('Enter', () =>
+        router.post(study.answer(flashcardId).url, { result, mode }),
+    );
+
     return (
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <VerdictBanner result={result} />

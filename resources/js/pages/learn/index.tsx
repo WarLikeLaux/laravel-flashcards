@@ -13,6 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
@@ -134,6 +135,19 @@ function LearnCard({
 }) {
     const studiedAction = `${learn.studied(flashcard.id).url}`;
     const skipAction = `${learn.skip(flashcard.id).url}`;
+
+    const filterPayload: Record<string, string> = {};
+
+    if (filters.category && filters.category !== 'all') {
+        filterPayload.category = filters.category;
+    }
+
+    if (filters.topic) {
+        filterPayload.topic = filters.topic;
+    }
+
+    useKeyboardShortcut('1', () => router.post(skipAction, filterPayload));
+    useKeyboardShortcut('2', () => router.post(studiedAction, filterPayload));
 
     return (
         <Card>

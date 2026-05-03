@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     Check,
     Eye,
@@ -23,6 +23,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
@@ -110,6 +111,23 @@ function ReviewCard({
     total: number;
 }) {
     const [revealed, setRevealed] = useState(false);
+
+    useKeyboardShortcut(' ', () => setRevealed(true), !revealed);
+    useKeyboardShortcut(
+        '1',
+        () => router.post(review.forgot(flashcard.id).url),
+        revealed,
+    );
+    useKeyboardShortcut(
+        '2',
+        () => router.post(review.skip(flashcard.id).url),
+        revealed,
+    );
+    useKeyboardShortcut(
+        '3',
+        () => router.post(review.remember(flashcard.id).url),
+        revealed,
+    );
 
     return (
         <Card>
