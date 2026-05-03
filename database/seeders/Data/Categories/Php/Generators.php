@@ -101,6 +101,52 @@ echo $g->getReturn(); // 30',
                 'difficulty' => 4,
                 'topic' => 'php.generators',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Как обработать CSV-файл на 10 ГБ на сервере с 512 МБ RAM?',
+                'answer' => 'Классический Senior-вопрос на проверку понимания стримов и генераторов. Решение НЕ должно загружать весь файл в память. Что НЕ работает: file() / file_get_contents() - построят массив на 10 ГБ, OOM. str_getcsv от всего файла - то же самое. SplFileObject с iterator-методами - правильное направление, но без yield всё равно держит данные в памяти при foreach($file as $line). Правильное решение: 1) fopen() для получения file handle - PHP открывает поток, не читая в память. 2) fgetcsv() в цикле while - читает по одной строке через буфер ОС (~8KB), возвращает массив колонок. 3) yield - оборачиваем в generator-функцию, чтобы передать строки наружу лениво. 4) Обрабатываем построчно, ничего не накапливая в массиве. Для записи результата - тоже стрим: fopen + fputcsv или прямо в БД через batch-вставку (1000 строк за раз с unset() и gc_collect_cycles между батчами). Дополнительные приёмы: stream_filter_append для on-the-fly декомпрессии (gzip), wrappers (php://memory только для маленьких данных, php://temp - переключается на диск выше 2 МБ). Память при таком подходе - O(1), по сути только размер одной строки + буфер ОС, на 10 ГБ файле занято 5-10 МБ независимо от размера. Время линейное от размера файла, упирается в дисковый IO.',
+                'code_example' => '<?php
+function readCsv(string $path): Generator
+{
+    $fh = fopen($path, "r");
+    if ($fh === false) throw new RuntimeException("cannot open $path");
+
+    try {
+        $header = fgetcsv($fh); // первая строка - заголовки
+        if ($header === false) return;
+
+        while (($row = fgetcsv($fh)) !== false) {
+            // ассоциативная строка: ["email" => "...", "name" => "..."]
+            yield array_combine($header, $row);
+        }
+    } finally {
+        fclose($fh); // даже при exception
+    }
+}
+
+// Обработка 10 ГБ файла, batch-вставка по 1000 строк
+$batch = [];
+foreach (readCsv("/data/users-10gb.csv") as $row) {
+    $batch[] = ["email" => $row["email"], "name" => $row["name"]];
+
+    if (count($batch) >= 1000) {
+        DB::table("users")->insert($batch);
+        $batch = [];               // освободить память
+        gc_collect_cycles();       // принудительно
+    }
+}
+if ($batch) DB::table("users")->insert($batch);
+
+// Если файл сжат - прозрачная декомпрессия
+$gz = fopen("compress.zlib:///data/big.csv.gz", "r");
+while (($row = fgetcsv($gz)) !== false) { /* ... */ }
+
+// Память на 10 ГБ файле:
+echo memory_get_peak_usage(true) / 1024 / 1024; // ~6 MB',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'php.generators',
+            ],
         ];
     }
 }

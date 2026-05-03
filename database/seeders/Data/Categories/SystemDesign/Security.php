@@ -156,6 +156,146 @@ if (password_verify($input, $hash)) {
                 'difficulty' => 3,
                 'topic' => 'system_design.security',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Что такое SSRF и как защитить file_get_contents() / Guzzle, если URL вводит пользователь?',
+                'answer' => 'SSRF (Server-Side Request Forgery) - атака, при которой злоумышленник заставляет сервер сделать HTTP-запрос на адрес, выбранный атакующим. Канонический пример - функция "preview по URL", "загрузить аватарку из URL", парсер Open Graph. Атакующий передаёт http://169.254.169.254/latest/meta-data/iam/security-credentials/ (AWS metadata) и читает IAM-credentials, или http://localhost:6379/ (Redis), или http://internal-admin/ - сервер, в отличие от внешнего пользователя, имеет сетевой доступ внутрь VPC. Защита многоуровневая: 1) Allowlist схем - разрешать только http/https, явно запрещать file://, gopher://, dict:// (особенно опасен gopher - можно отправить произвольные байты в любой TCP-сокет, включая Redis/Memcached). 2) Allowlist хостов - если знаете что разрешено (например, только imgur.com), сравнивайте после ресолва. 3) Резолв DNS вручную и проверка IP - блокируйте RFC1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16 - метаданные облака!), 0.0.0.0, multicast. 4) Защита от DNS rebinding - резолвьте имя ОДИН раз и используйте полученный IP для запроса (Guzzle: указать resolve в config), иначе атакующий между TOCTOU подменит ответ DNS на внутренний IP. 5) Отдельный пользователь/network namespace без доступа в private сети. 6) В cloud - запретите IMDSv1, требуйте IMDSv2 с обязательным токеном. 7) Запретите редиректы или проверяйте Location заново - 302 на http://169.254.169.254 обходит примитивную проверку.',
+                'code_example' => '<?php
+use GuzzleHttp\\Client;
+
+function fetchUserUrl(string $url): string
+{
+    // 1. allowlist схем
+    $parsed = parse_url($url);
+    if (!in_array($parsed["scheme"] ?? "", ["http", "https"], true)) {
+        throw new InvalidArgumentException("scheme not allowed");
+    }
+
+    // 2. резолв и проверка IP до запроса
+    $host = $parsed["host"] ?? "";
+    $ip = gethostbyname($host);
+    if ($ip === $host) throw new RuntimeException("dns resolve failed");
+
+    if (
+        filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false
+    ) {
+        throw new RuntimeException("private/reserved IP: $ip");
+    }
+
+    // 3. Guzzle: использовать уже зарезолвленный IP (защита от DNS rebinding)
+    $client = new Client([
+        "allow_redirects" => false,        // или с onRedirect-хуком, повторно проверяющим IP
+        "connect_timeout" => 5,
+        "timeout" => 10,
+        "force_ip_resolve" => "v4",
+        "curl" => [
+            CURLOPT_RESOLVE => ["{$host}:443:{$ip}"],
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, // отключить gopher/file
+        ],
+    ]);
+
+    return (string) $client->get($url)->getBody();
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'System Design',
+                'question' => 'Что такое timing attack и почему для сравнения токенов используют hash_equals(), а не === ?',
+                'answer' => 'Timing attack - атака на основе измерения времени работы кода. При сравнении строк через ==/===/strcmp PHP (как и большинство языков) останавливается на первом несовпавшем байте: для "secret123" vs "aecret123" сравнение упадёт после первого байта (микросекунды), а для "secret999" vs "secret123" пройдёт 6 байтов и упадёт на седьмом. Разница - наносекунды, но при тысячах попыток через сеть атакующий может статистически восстановить токен побайтово: сначала перебирает первый символ до момента, когда время чуть растёт (значит, первый совпал), потом второй и т.д. Это реальная атака - именно так в 2014 году взломали один из криптокошельков. Защита: использовать сравнение за константное время - функцию, которая сравнивает все байты независимо от того, где первое расхождение. В PHP это hash_equals($known, $user_supplied) - под капотом XOR-проход по всем байтам с накоплением разницы. Применяется ВЕЗДЕ, где сравниваются криптографические артефакты: CSRF-токены, HMAC-подписи, JWT-сигнатуры, OAuth-state, API-ключи, password hashes (но для паролей лучше password_verify, который сам безопасен), webhook signature verification (Stripe, GitHub). Важно: hash_equals НЕ защищает от других side-channels - если первая операция (например, вычисление hash от user input) тоже зависит от длины ввода, утечка остаётся. Параметры: первый аргумент - известное (server-side) значение, второй - пользовательское; ранний return при разной длине допустим (это не утечка). И ещё: == для строк и так-то опасен - "0e123..." == "0e456..." будет true (оба интерпретируются как 0e... = 0).',
+                'code_example' => '<?php
+// ❌ Уязвимо к timing attack
+function checkApiKey(string $provided): bool
+{
+    $known = config("api.secret");
+    return $provided === $known; // время зависит от позиции расхождения
+}
+
+// ✅ Безопасно
+function checkApiKey(string $provided): bool
+{
+    $known = config("api.secret");
+    return hash_equals($known, $provided); // константное время
+}
+
+// Webhook signature (GitHub-style)
+function verifyWebhook(string $payload, string $signatureHeader, string $secret): bool
+{
+    $expected = "sha256=" . hash_hmac("sha256", $payload, $secret);
+    return hash_equals($expected, $signatureHeader);
+}
+
+// CSRF
+if (!hash_equals($_SESSION["csrf"], $_POST["csrf"] ?? "")) {
+    throw new HttpException(419);
+}
+
+// ⚠️ Магическое сравнение, опасное даже без timing
+var_dump("0e123456" == "0e789012"); // true! оба = 0e... = 0',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'System Design',
+                'question' => 'Главная проблема JWT - как отозвать токен до истечения срока действия?',
+                'answer' => 'Stateless JWT - токен self-contained: сервер не хранит никакого состояния, только проверяет подпись. Это даёт горизонтальное масштабирование (любой инстанс может валидировать), но создаёт фундаментальную проблему: ЕСЛИ токен утёк или пользователь нажал "Logout" / сменил пароль / был забанен - его нельзя отозвать средствами самого JWT. Подписанный токен с exp через 24 часа будет валиден все 24 часа на любом сервере, который доверяет вашему ключу. Решения, в порядке усложнения: 1) Короткий TTL + refresh tokens. Access JWT живёт 5-15 минут, refresh token (хранится в БД, может быть отозван) живёт долго. После logout удаляем refresh из БД - максимум через 15 минут access умрёт. Это де-факто стандарт (OAuth 2.0). 2) Блок-лист (denylist) по jti. В JWT кладут уникальный jti claim; при logout пишут jti в Redis с TTL до exp; на каждый запрос проверяют "не в блок-листе ли этот jti". Это уже частично stateful - теряется главное преимущество JWT, но даёт мгновенный отзыв. 3) Версионирование токенов через user.token_version. У юзера в БД хранится integer; в JWT кладётся claim "ver"; при logout/смене пароля инкремент token_version → все старые токены становятся невалидны. Один SELECT на запрос (можно кешировать). 4) Ротация ключа подписи. Подходит только для глобальных инцидентов - инвалидирует ВСЕ токены сразу, не точечно. Практически: для большинства приложений использовать sessions (stateful, легко отозвать), а JWT - только когда реально нужен stateless (межсервисная аутентификация, мобильные клиенты, OAuth). Если выбрали JWT - короткий TTL + refresh + denylist на jti.',
+                'code_example' => '<?php
+// Подход 1: короткий TTL + refresh
+class TokenIssuer
+{
+    public function issue(User $user): array
+    {
+        return [
+            "access" => JWT::encode([
+                "sub" => $user->id,
+                "exp" => time() + 900,           // 15 минут
+                "jti" => Str::ulid(),
+            ], $this->secret),
+            "refresh" => DB::table("refresh_tokens")->insertGetId([
+                "user_id" => $user->id,
+                "token_hash" => hash("sha256", $rawRefresh = bin2hex(random_bytes(32))),
+                "expires_at" => now()->addDays(30),
+            ]) ? $rawRefresh : null,
+        ];
+    }
+
+    public function logout(string $rawRefresh): void
+    {
+        DB::table("refresh_tokens")
+            ->where("token_hash", hash("sha256", $rawRefresh))
+            ->delete(); // отзыв через удаление
+    }
+}
+
+// Подход 2: denylist на jti для немедленного logout
+public function logoutNow(string $jwt): void
+{
+    $payload = JWT::decode($jwt, $this->secret);
+    $ttl = $payload->exp - time();
+    Redis::setex("revoked:jti:{$payload->jti}", $ttl, 1);
+}
+
+public function isRevoked(string $jti): bool
+{
+    return Redis::exists("revoked:jti:{$jti}") > 0;
+}
+
+// Подход 3: token_version
+public function validate(string $jwt): User
+{
+    $payload = JWT::decode($jwt, $this->secret);
+    $user = User::find($payload->sub);
+    if ($user->token_version !== $payload->ver) {
+        throw new TokenRevokedException;
+    }
+    return $user;
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
         ];
     }
 }

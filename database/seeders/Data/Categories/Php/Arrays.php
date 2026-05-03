@@ -224,6 +224,44 @@ print_r(str_split("abcdef", 2));
                 'difficulty' => 2,
                 'topic' => 'php.arrays',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Какая алгоритмическая сложность у популярных операций над массивами в PHP?',
+                'answer' => 'PHP-массив - это упорядоченная hashtable (HashTable из ext/standard), а не классический индексный массив, как в C. Это даёт ровную картину сложностей. O(1) - амортизированно: array_push / $a[] = (вставка в конец), array_pop, isset($a[$k]), array_key_exists($k, $a), unset($a[$k]) (но не пересчитывает индексы), count() (хранится отдельно). O(N): array_unshift, array_shift - сдвигают все integer-ключи на 1, поэтому линейные; in_array, array_search - линейный поиск по значениям; array_values, array_keys, array_flip, array_merge, array_filter, array_map - проходят весь массив. O(N log N): sort, asort, ksort, usort и компания (quicksort/mergesort внутри). Практический Senior-приём: для частых проверок "есть ли элемент" не используй in_array(O(N)) - сделай array_flip один раз и потом isset (O(1)). Для очереди FIFO с большим N используй SplDoublyLinkedList или SplQueue вместо array_shift - последний O(N) на каждом вызове. Учти расход памяти: PHP-массив тяжёлый (один элемент ~100+ байт из-за hashtable + zval); для больших данных используй SplFixedArray или объекты с типизированными свойствами.',
+                'code_example' => '<?php
+// ❌ Плохо: O(N²) - линейный поиск внутри цикла
+$ids = range(1, 100_000);
+$lookup = [42, 7, 99_999];
+foreach ($lookup as $id) {
+    if (in_array($id, $ids)) { /* O(N) на каждой итерации */ }
+}
+
+// ✅ Хорошо: O(N) на flip + O(1) на проверку
+$flipped = array_flip($ids); // [1=>0, 2=>1, ...]
+foreach ($lookup as $id) {
+    if (isset($flipped[$id])) { /* O(1) */ }
+}
+
+// ❌ Плохо: O(N²) на разворот через unshift в цикле
+$result = [];
+foreach ($items as $item) {
+    array_unshift($result, $item); // сдвиг всех элементов
+}
+
+// ✅ Хорошо: O(N) push + reverse
+$result = [];
+foreach ($items as $item) {
+    $result[] = $item;     // O(1)
+}
+$result = array_reverse($result); // O(N)
+
+// Очередь FIFO
+$q = new SplQueue();
+$q->enqueue("a"); $q->dequeue(); // обе O(1), без сдвигов',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'php.arrays',
+            ],
         ];
     }
 }

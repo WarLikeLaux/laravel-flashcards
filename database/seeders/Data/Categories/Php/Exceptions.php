@@ -43,8 +43,8 @@ try {
             ],
             [
                 'category' => 'PHP',
-                'question' => 'Чем Exception отличается от Error?',
-                'answer' => 'И Exception, и Error реализуют интерфейс Throwable. Exception - для условий, которые программа может ожидать и обработать (валидация, бизнес-логика). Error - для серьёзных проблем рантайма: TypeError, ValueError (PHP 8), DivisionByZeroError, OutOfMemoryError, ParseError. Их тоже можно ловить, но обычно не стоит. catch (Throwable) поймает оба.',
+                'question' => 'Чем Exception отличается от Error и почему важно ловить Throwable, а не Exception?',
+                'answer' => 'И Exception, и Error реализуют интерфейс Throwable, но НЕ являются родственниками - они два независимых корня иерархии. Это критично: catch (Exception $e) НЕ поймает TypeError, ValueError, DivisionByZeroError, ArgumentCountError, AssertionError - это всё наследники Error. В PHP 8 многие ситуации, которые раньше были Warning или Fatal Error без возможности перехвата, переведены в Error: вызов несуществующего метода, передача неподходящего типа в функцию, undefined-обращения в strict-режиме - всё это TypeError/Error. Поэтому global-обработчик в проде должен ловить Throwable: catch (Throwable $e) поймает И Exception (бизнес-логика), И Error (рантайм-проблемы), залогирует и красиво ответит клиенту вместо white screen of death. Exception - для ожидаемых ситуаций, которые программа умеет обрабатывать (валидация, NotFound, ConflictException). Error - для проблем рантайма; их обычно НЕ ловят локально, но обязательно перехватывают на верхнем уровне (middleware/exception handler) для логирования.',
                 'code_example' => '<?php
 try {
     intdiv(10, 0);  // DivisionByZeroError (наследник Error)

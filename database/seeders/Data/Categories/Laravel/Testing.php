@@ -106,6 +106,99 @@ $this->instance(PaymentService::class, new FakePaymentService());',
                 'difficulty' => 3,
                 'topic' => 'laravel.testing',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'В чём разница между Mock, Stub, Spy, Fake и Dummy? (классификация Мешароса/Фаулера)',
+                'answer' => 'Test doubles - объекты-заглушки для зависимостей в тестах. Классификация Мешароса (xUnit Patterns), популяризованная Фаулером ("Mocks Aren\'t Stubs"). 1) Dummy - просто заполняет параметр, никогда не используется. Когда метод требует Logger в конструкторе, но в этом тесте логирование не вызывается. 2) Stub - возвращает заранее заданные ответы (canned), НИКАКОГО verify по вызовам. Вопрос "что вернёт getUser(1)?" → "User Tom". State-based testing: проверяем итоговое состояние SUT, не вызовы. 3) Spy - как stub, но дополнительно ЗАПИСЫВАЕТ все вызовы (что вызвали, с какими аргументами, сколько раз). После теста ассерт делается ПОСТФАКТУМ: assertCalled / assertCalledWith. 4) Mock - заранее ОЖИДАЕТ конкретные вызовы (expect()), и сам провалит тест, если ожидание не выполнено или вызвано что-то лишнее. Behavior-based testing: проверяем взаимодействия. Главное отличие от spy: expectation задаётся ДО действия, проверяется автоматически. 5) Fake - рабочая, упрощённая реализация (in-memory репозиторий вместо БД, FakeMailer вместо SMTP). Фактически работает, но не подходит для прода (потеря данных при рестарте, нет транзакций). В Mockery (используется в Laravel): shouldReceive("foo")->andReturn(...) - stub; shouldReceive("foo")->once()->with(42) - mock; spy() + shouldHaveReceived(...) - spy. Senior-практика: предпочитать stubs/fakes для большинства тестов (прочнее к рефакторингу), mocks использовать когда взаимодействие ЯВЛЯЕТСЯ предметом теста (event dispatched, http request sent). Чрезмерное использование mocks даёт хрупкие тесты, ломающиеся при невинном рефакторинге.',
+                'code_example' => '<?php
+use Mockery;
+
+// STUB - возвращает заданное значение, не проверяет вызовы
+$repo = Mockery::mock(UserRepository::class);
+$repo->shouldReceive("find")->andReturn(new User("Tom"));
+
+// MOCK - явное ожидание вызова
+$mailer = Mockery::mock(Mailer::class);
+$mailer->shouldReceive("send")
+    ->once()
+    ->with(Mockery::on(fn($email) => $email->to === "tom@a"));
+// Тест провалится, если send не вызван или вызван с другими аргументами
+
+// SPY - запись для последующей проверки
+$logger = Mockery::spy(Logger::class);
+$service = new OrderService($logger);
+$service->place();
+$logger->shouldHaveReceived("info")->with("order.placed");
+
+// FAKE - рабочая упрощённая реализация
+class FakeUserRepository implements UserRepository
+{
+    private array $users = [];
+    public function save(User $u): void { $this->users[$u->id] = $u; }
+    public function find(int $id): ?User { return $this->users[$id] ?? null; }
+}
+
+// DUMMY - просто чтобы конструктор не упал
+new OrderService(new NullLogger()); // никто его не вызовет в этом тесте
+
+// Laravel-специфичные fakes
+Mail::fake();
+Queue::fake();
+Event::fake();
+// под капотом Mail::fake() - это spy: записывает отправленные письма,
+// потом Mail::assertSent(InvoicePaid::class)',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.testing',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Data Providers в PHPUnit / Pest и зачем они нужны?',
+                'answer' => 'Data Provider - механизм запуска одного теста с разными наборами входных данных. Вместо копи-пасты теста под каждый случай (test_zero, test_negative, test_huge) пишется один тест, а данные подаются провайдером - PHPUnit выполнит тест по разу для каждого набора и в отчёте покажет каждый прогон отдельно. Если упал случай №3 - сразу видно какой именно. Типичные кейсы: проверка валидатора с десятками граничных значений, парсинг разных форматов строк, ассертится одна и та же логика на разных входах, табличные тесты (table-driven tests). PHPUnit: атрибут #[DataProvider("methodName")] на методе теста + статический метод-провайдер, возвращающий iterable массивов параметров. Можно key-by name каждого случая, чтобы в отчёте было читаемо. Можно использовать generator (yield) - удобно для больших или ленивых наборов. Pest: метод ->with([...]) на тесте, или ->with("dataset_name") + dataset("name", [...]) в Pest.php. Принимает массив, генератор, или замыкание. Senior-нюанс: data provider не имеет доступа к setUp() и контейнеру (его метод статический и вызывается ДО setUp), поэтому в нём нельзя создавать Eloquent-модели через factory - используйте closure-параметр в Pest или ленивый генератор в PHPUnit, чтобы создание объектов произошло уже в тесте. Тест с провайдером даёт параметризацию без потери читаемости и снижает дублирование.',
+                'code_example' => '<?php
+// PHPUnit
+use PHPUnit\\Framework\\Attributes\\DataProvider;
+
+final class EmailValidatorTest extends TestCase
+{
+    #[DataProvider("emailCases")]
+    public function test_validation(string $email, bool $expected): void
+    {
+        $this->assertSame($expected, EmailValidator::isValid($email));
+    }
+
+    public static function emailCases(): iterable
+    {
+        yield "valid simple"      => ["a@b.co", true];
+        yield "valid plus"        => ["a+tag@b.co", true];
+        yield "missing @"         => ["abc.com", false];
+        yield "no tld"            => ["a@b", false];
+        yield "leading dot"       => [".a@b.co", false];
+        yield "unicode"           => ["юзер@домен.рф", true];
+    }
+}
+
+// Pest
+test("email validation", function (string $email, bool $expected) {
+    expect(EmailValidator::isValid($email))->toBe($expected);
+})->with([
+    "valid simple" => ["a@b.co", true],
+    "missing @"    => ["abc.com", false],
+    "no tld"       => ["a@b", false],
+]);
+
+// Pest dataset reuse
+dataset("emails", [
+    ["a@b.co", true],
+    ["abc.com", false],
+]);
+
+test("validator", fn ($email, $valid) => expect(...))
+    ->with("emails");',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.testing',
+            ],
         ];
     }
 }

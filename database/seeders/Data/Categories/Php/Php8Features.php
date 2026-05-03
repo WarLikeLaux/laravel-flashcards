@@ -119,7 +119,7 @@ print_r(Role::cases());               // все варианты',
             [
                 'category' => 'PHP',
                 'question' => 'Как PHP управляет памятью в долгоживущих CLI-процессах (демонах, воркерах) и как избежать утечек?',
-                'answer' => 'В обычном fpm-цикле каждый запрос получает свежее состояние и память освобождается после завершения скрипта - можно почти не думать об утечках. В CLI-демонах (Laravel queue:work, Octane, Swoole, ReactPHP) процесс живёт часами/днями, и любой объект, который не отпустили, навсегда занимает память. PHP использует reference counting + cycle collector: память освобождается, когда refcount = 0. Циклические ссылки (A→B, B→A) собирает GC периодически (gc_collect_cycles вызывается автоматически при заполнении буфера или вручную). Типичные источники утечек: 1) Глобальные/статические массивы-кеши без TTL. 2) Eloquent-модели, удерживаемые в Job через свойства. 3) Singleton-сервисы с накапливающимся state. 4) Замыкания, захватывающие $this и удерживающие крупные объекты. Практика: queue:work --max-jobs=1000 --max-time=3600 - воркер сам перезапустится, освобождая всё; в Octane - flush сервисов между запросами. Мониторинг через memory_get_usage(true) в логах.',
+                'answer' => 'В обычном fpm-цикле каждый запрос получает свежее состояние и память освобождается после завершения скрипта - можно почти не думать об утечках. В CLI-демонах (Laravel queue:work, Octane, Swoole, ReactPHP) процесс живёт часами/днями, и любой объект, который не отпустили, навсегда занимает память. PHP использует reference counting + mark-and-sweep для циклов: память освобождается, когда refcount = 0; циклические ссылки (A→B, B→A) собирает GC периодически (порог 10000 возможных корней либо вручную gc_collect_cycles()). Важный нюанс: даже после gc_collect_cycles() Zend Memory Manager удерживает память в виде арен и чанков - формально она "свободна" в PHP, но не возвращена в ОС. В долгоживущих процессах (Octane, RoadRunner, queue:work) для реального возврата памяти ОС вызывают gc_mem_caches() - очищает внутренние кеши Zend MM. Без этого RSS-процесса (видный в top/htop) только растёт. Типичные источники утечек: 1) Глобальные/статические массивы-кеши без TTL. 2) Eloquent-модели, удерживаемые в Job через свойства. 3) Singleton-сервисы с накапливающимся state. 4) Замыкания, захватывающие $this и удерживающие крупные объекты. Практика: queue:work --max-jobs=1000 --max-time=3600 - воркер сам перезапустится, освобождая всё; в Octane - flush сервисов между запросами + gc_collect_cycles + gc_mem_caches. Мониторинг через memory_get_usage(true) (учитывает реальный RSS, в отличие от false).',
                 'code_example' => '<?php
 // Job, накапливающий утечку
 class ProcessOrderJob
@@ -136,8 +136,9 @@ class ProcessOrderJob
 // Грамотный воркер
 // supervisor: php artisan queue:work --max-jobs=1000 --max-time=3600 --memory=256
 
-// Принудительная очистка
-gc_collect_cycles();
+// Принудительная очистка между jobs
+gc_collect_cycles();   // собрать циклические ссылки
+gc_mem_caches();       // вернуть кеши Zend MM в ОС - снижает RSS
 DB::disconnect();
 
 // Мониторинг
@@ -175,7 +176,7 @@ $result = $lib->compute_hash("data");
             [
                 'category' => 'PHP',
                 'question' => 'Дают ли Fibers настоящую многопоточность? Чем они отличаются от потоков ОС?',
-                'answer' => 'НЕТ. Fibers (PHP 8.1) - это кооперативная многозадачность (concurrency), а не параллелизм (parallelism). Все fibers выполняются в ОДНОМ потоке ОС: только один fiber работает в любой момент времени, переключение происходит явно через Fiber::suspend()/resume() - не вытесняюще. Это значит: CPU-bound задачи в fibers не ускорятся (используется одно ядро), но IO-bound задачи могут эффективно совмещаться (пока один fiber ждёт сокет, шедулер запускает другой). Fibers - примитив низкого уровня для написания async-runtimes (amphp v3, ReactPHP в новых версиях): сами по себе они не делают код асинхронным, нужен event loop, который при IO-операции переключает fiber. Для настоящего параллелизма (несколько ядер CPU) в PHP используют: ext-parallel (отдельные потоки с shared-nothing моделью), pcntl_fork (форк процессов), очереди (распределение задач на воркеры). Аналогии: fibers ≈ async/await в Python/JS, корутины в Kotlin без многопоточного диспетчера, goroutines в одно-поточном GOMAXPROCS=1.',
+                'answer' => 'НЕТ. Fibers (PHP 8.1) - это кооперативная многозадачность (concurrency), а не параллелизм (parallelism). Все fibers выполняются в ОДНОМ потоке ОС: только один fiber работает в любой момент времени, переключение происходит явно через Fiber::suspend()/resume() - не вытесняюще. Это значит: CPU-bound задачи в fibers не ускорятся (используется одно ядро), но IO-bound задачи могут эффективно совмещаться (пока один fiber ждёт сокет, шедулер запускает другой). Зачем их вообще добавили в PHP? Чтобы решить проблему "function colors" (Bob Nystrom, 2015), известную из JS/Python: когда любая async-операция требует, чтобы вся цепочка вызывающих функций тоже стала async (async/await заражает код). С Fibers async-runtime может приостанавливать стек ВНУТРИ синхронной по виду функции - например, обычный $pdo->query() умеет yield-ить fiber и пускать другие задачи, а сигнатура остаётся синхронной. Для пользователя код выглядит как обычный, асинхронность спрятана в реализации драйвера. Fibers - это примитив для написания async-runtimes (amphp v3, ReactPHP в новых версиях, RoadRunner, FrankenPHP), сами по себе они не делают код асинхронным, нужен event loop, который при IO переключает fiber. Для настоящего параллелизма (несколько ядер) в PHP используют: ext-parallel (отдельные потоки с shared-nothing), pcntl_fork (форк процессов), очереди (распределение задач на воркеры).',
                 'code_example' => '<?php
 $fiber = new Fiber(function (): void {
     echo "1 ";
@@ -193,6 +194,45 @@ $fiber->resume("hi"); // "3 (получил: hi)"
 // - ext-parallel: $runtime->run(fn() => heavyWork())
 // - pcntl_fork()
 // - очереди: dispatch(new HeavyJob)->onQueue("workers")',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'php.php8_features',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Какие инструменты профилирования PHP-кода есть и в чём их различия?',
+                'answer' => 'Профилирование - сбор статистики по горячим точкам в коде (CPU, память, IO). Главные инструменты в экосистеме PHP. 1) Xdebug Profiler - встроен в Xdebug. Включается через xdebug.mode=profile, генерирует Cachegrind-файлы (формат от valgrind), которые открываются в KCachegrind/qcachegrind/Webgrind или плагином PhpStorm. ПЛЮСЫ: бесплатно, локально, точные данные по каждому function call. МИНУСЫ: огромный overhead (10-100x замедление) - НЕ для прода, только локально на воспроизводимом сценарии; результирующий файл огромный. 2) Blackfire (платный, есть бесплатный tier) - SaaS-профайлер от создателей Symfony. Малый overhead (~5-10%), можно гонять на проде на части запросов. Web-UI с timeline, call-graph, сравнением профилей, performance тестами в CI. ПЛЮСЫ: production-ready, отличный UX, тесты регрессий. МИНУСЫ: платный, отправка данных в SaaS. 3) SPX (open source, бесплатный) - alternative от NoiseByNorthwest. Низкий overhead, web-UI как у Blackfire, можно использовать на проде. Установка: pecl install spx или собрать из исходников. Триггер через query-параметр или cookie - "запустить профилирование только этого запроса". Для personal/команды - оптимальный выбор. 4) Tideways - APM с профилированием, конкурент Blackfire. 5) Datadog/New Relic APM - не полноценные профайлеры, но дают агрегированную картину "какой endpoint медленный" в проде. Когда что использовать: локально на конкретный сценарий - Xdebug; CI-тесты регрессий и продовое выборочное - Blackfire/SPX; постоянный мониторинг - APM. Senior-приём: профилировать ПЕРЕД оптимизацией, иначе оптимизируется не то место. Правило 80/20: 80% времени в 20% кода - найти и оптимизировать именно их.',
+                'code_example' => '<?php
+// 1. Xdebug Profiler - локально
+// php.ini:
+//   zend_extension = xdebug
+//   xdebug.mode = profile
+//   xdebug.output_dir = /tmp/xdebug
+//   xdebug.start_with_request = trigger
+// curl "https://localhost/api/slow?XDEBUG_PROFILE=1"
+// откроет /tmp/xdebug/cachegrind.out.<pid>
+// открыть в KCachegrind / PhpStorm
+
+// 2. SPX - быстрый production-ready профайлер
+// php.ini:
+//   extension = spx
+//   spx.http_enabled = 1
+//   spx.http_key = "secret"
+//   spx.http_ip_whitelist = "10.0.0.0/8"
+// curl -H "SPX_KEY: secret" -H "SPX_ENABLED: 1" https://app/slow
+// открыть https://app/?SPX_UI_URI=/
+
+// 3. Blackfire - в проде на части запросов
+// blackfire run php artisan import:big
+// или через расширение + вебхук в CI
+
+// 4. Простейший inline-замер для проверки гипотезы
+$t = hrtime(true);
+$result = expensiveOperation();
+$elapsedMs = (hrtime(true) - $t) / 1_000_000;
+Log::info("expensive", ["ms" => $elapsedMs, "mem_mb" => memory_get_peak_usage(true) / 1024 / 1024]);
+
+// Правило: ИЗМЕРЯЙ перед оптимизацией; угадывание узкого места почти всегда ошибается',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'php.php8_features',
