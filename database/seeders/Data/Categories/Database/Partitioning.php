@@ -214,7 +214,7 @@ ANALYZE orders;',
             [
                 'category' => 'Базы данных',
                 'question' => 'Что такое CAP-теорема и как она применяется в выборе БД?',
-                'answer' => 'CAP: при network partition распределённая система может обеспечить либо Consistency, либо Availability - не оба. Single-leader RDBMS (Postgres, MySQL) - CP: при потере связи с мастером пишущая сторона недоступна. Cassandra/DynamoDB - AP: всегда отвечают, но возможна eventual consistency. Реальные системы тонко настраиваются: Postgres с synchronous_standby даёт сильнее C, ослабляет A; Cassandra QUORUM - компромисс. PACELC расширяет CAP, добавляя trade-off latency vs consistency без partition.',
+                'answer' => 'CAP: при network partition распределённая система может обеспечить либо Consistency, либо Availability - не оба. Применять CAP-ярлыки к "Postgres" или "MySQL" в целом некорректно - одиночный сервер вообще не распределённая система. Корректно говорить о КОНКРЕТНОЙ конфигурации: single-leader RDBMS с синхронной репликацией и quorum-фейловером (Postgres synchronous_standby_names, MySQL Group Replication) близка к CP - при потере связи с мастером пишущая сторона недоступна, чтобы не разойтись; та же СУБД с асинхронной репликацией и автофейловером может потерять подтверждённые транзакции при failover (жертва C в пользу A). Cassandra/DynamoDB позиционируются как AP, но и они tunable (Cassandra QUORUM ближе к CP, DynamoDB ConsistentRead=true тоже). PACELC расширяет CAP, добавляя trade-off latency vs consistency без partition.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 5,

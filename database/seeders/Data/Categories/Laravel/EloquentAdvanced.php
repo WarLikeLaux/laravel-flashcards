@@ -393,13 +393,22 @@ Post::withoutGlobalScopes()->get();',
             [
                 'category' => 'Laravel',
                 'question' => 'Что произойдёт, если вызвать $user->posts во foreach без with("posts")?',
-                'answer' => 'Это классический N+1: для каждого юзера выполнится отдельный SELECT по posts. with("posts") делает eager loading: один SELECT users + один WHERE user_id IN (...). При большом наборе данных N+1 даёт сотни запросов и убивает latency. Полезно включить Model::preventLazyLoading() в локальной среде - оно бросает исключение при ленивой загрузке и сразу ловит баг.',
+                'answer' => 'Это классический N+1: для каждого юзера выполнится отдельный SELECT по posts. with("posts") делает eager loading: один SELECT users + один WHERE user_id IN (...). При большом наборе данных N+1 даёт сотни запросов и убивает latency. Полезно включить Model::preventLazyLoading() в локальной среде - оно бросает исключение при ленивой загрузке и сразу ловит баг. ⚠️ ВАЖНО про limit() внутри with(): в Laravel 11+ это работает как per-parent limit (5 постов на КАЖДОГО юзера) благодаря интеграции пакета staudenmeir/eloquent-eager-limit в ядро. В Laravel ≤10 такой limit применяется к ОБЩЕЙ eager-load выборке (вы получите 5 постов суммарно на ВСЕХ юзеров) - классическая ловушка. На <=10 правильные альтернативы: hasOne+latestOfMany() для "последнего", subquery с ROW_NUMBER(), отдельный запрос с группировкой, или сторонний пакет.',
                 'code_example' => '<?php
 // AppServiceProvider::boot
 Model::preventLazyLoading(! app()->isProduction());
 
-// в коде
-$users = User::with(["posts" => fn($q) => $q->latest()->limit(5)])->get();',
+// Laravel 11+: per-parent limit, по 5 постов на каждого юзера
+$users = User::with(["posts" => fn ($q) => $q->latest()->limit(5)])->get();
+
+// Laravel ≤10 - такая же запись даст 5 постов на ВСЮ выборку, не на юзера.
+// Правильный путь: latestOfMany для "одного последнего"
+class User extends Model {
+    public function latestPost(): HasOne {
+        return $this->hasOne(Post::class)->latestOfMany();
+    }
+}
+$users = User::with("latestPost")->get();',
                 'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'laravel.eloquent_advanced',
