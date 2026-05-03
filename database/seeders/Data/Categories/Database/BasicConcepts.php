@@ -88,7 +88,7 @@ SQL,
             [
                 'category' => 'Базы данных',
                 'question' => 'Что такое UNIQUE constraint?',
-                'answer' => 'UNIQUE constraint гарантирует, что во всех строках значения в указанном столбце (или комбинации столбцов) будут уникальны. В отличие от PRIMARY KEY, UNIQUE-столбец может содержать NULL (в большинстве СУБД NULL не считается равным другому NULL). Можно иметь несколько UNIQUE constraints на одной таблице.',
+                'answer' => 'UNIQUE constraint гарантирует, что во всех строках значения в указанном столбце (или комбинации столбцов) будут уникальны. В отличие от PRIMARY KEY, UNIQUE-столбец обычно может содержать NULL. Можно иметь несколько UNIQUE constraints на одной таблице. ВАЖНО про NULL - поведение РАЗНОЕ у разных СУБД, классическая cross-vendor ловушка на собеседованиях. PostgreSQL и MySQL/MariaDB: NULL != NULL для целей уникальности, поэтому в UNIQUE-колонку можно вставить ЛЮБОЕ количество NULL-ов. С PostgreSQL 15+ это поведение можно изменить через UNIQUE NULLS NOT DISTINCT - тогда NULL считается равным самому себе и в столбце будет максимум один NULL. SQL Server: НАОБОРОТ - стандартный UNIQUE constraint допускает только ОДИН NULL, попытка вставить второй даёт ошибку. Обходной путь в MS SQL - filtered index: CREATE UNIQUE INDEX ... ON t(col) WHERE col IS NOT NULL - получаете "PostgreSQL-like" поведение. Oracle: множество NULL разрешено, если UNIQUE на одной колонке; для составных UNIQUE правила хитрее. Практический совет: если бизнес-смысл "уникально или отсутствует", в Postgres можно UNIQUE INDEX ... WHERE col IS NOT NULL для явности.',
                 'code_example' => <<<'SQL'
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,

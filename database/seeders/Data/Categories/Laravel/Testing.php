@@ -199,6 +199,57 @@ test("validator", fn ($email, $valid) => expect(...))
                 'difficulty' => 3,
                 'topic' => 'laravel.testing',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как тестировать логику, зависящую от времени? (travel, freeze, setTestNow)',
+                'answer' => 'Когда логика зависит от now() / Carbon::now() (например, "токен живёт час", "напомнить через 3 дня", "запретить вход после 23:00") - в тесте нельзя ждать реальный час. Laravel даёт обёртки над Carbon::setTestNow() для управления временем. Основные хелперы (доступны в TestCase). 1) $this->travel(int $value)->{minutes()|hours()|days()|...} - сдвинуть текущее время на относительный интервал. 2) $this->travelTo(Carbon $instant) - перепрыгнуть на абсолютное время. 3) $this->travelBack() - вернуться к реальному времени (вызывается автоматически в tearDown, но можно явно для частичного теста). 4) $this->freezeTime() / $this->freezeSecond() - заморозить время (now() возвращает одно и то же значение между вызовами); удобно когда тест чувствителен к долям секунды. 5) В Pest - похожие методы, и есть expectation expect($carbon)->toBeBetween(...). Под капотом всё через Carbon::setTestNow($instant) - меняется глобально для всего приложения, включая Eloquent-таймстампы (created_at сохранится с этим временем). Подводные камни: 1) Если код использует time() или \\DateTime() напрямую - они НЕ подменятся, нужен Carbon. 2) При travel в БД-таймстампы попадает фейковое время - проверяйте, что это ОК для рассматриваемого теста. 3) В параллельных тестах travel влияет только на текущий процесс. Альтернатива более чистая - инжектить Clock-сервис в код (PSR-20 ClockInterface), и в тестах подавать FakeClock; но в Laravel-приложениях обычно используют travel.',
+                'code_example' => '<?php
+use Illuminate\\Foundation\\Testing\\TestCase;
+
+class TokenTest extends TestCase
+{
+    public function test_token_expires_after_hour(): void
+    {
+        $token = PasswordReset::create(["user_id" => 1, "expires_at" => now()->addHour()]);
+        expect($token->isExpired())->toBeFalse();
+
+        $this->travel(1)->hour();
+        expect($token->fresh()->isExpired())->toBeTrue();
+    }
+
+    public function test_streak_increments_each_day(): void
+    {
+        $user = User::factory()->create();
+        $this->travelTo("2026-05-01 09:00");
+        $user->logActivity();
+
+        $this->travelTo("2026-05-02 09:00");
+        $user->logActivity();
+
+        expect($user->fresh()->current_streak)->toBe(2);
+    }
+
+    public function test_two_calls_same_microsecond(): void
+    {
+        $this->freezeTime();
+        $a = now();
+        usleep(1000);
+        $b = now();
+        expect($a)->toEqual($b); // время заморожено
+    }
+
+    public function test_with_explicit_back(): void
+    {
+        $this->travel(1)->day();
+        // ...
+        $this->travelBack(); // явный возврат, если нужно в середине
+        expect(now())->toBeBetween(now()->subSecond(), now()->addSecond());
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.testing',
+            ],
         ];
     }
 }

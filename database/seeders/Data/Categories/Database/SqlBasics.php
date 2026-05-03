@@ -358,6 +358,53 @@ SQL,
                 'difficulty' => 2,
                 'topic' => 'database.sql_basics',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Защищают ли prepared statements от SQL-инъекции в ORDER BY? Можно ли передать имя колонки через параметр?',
+                'answer' => 'НЕТ. Prepared statements / PDO bindings / Eloquent параметризация защищают только ЗНАЧЕНИЯ в WHERE / VALUES / SET - то, что в SQL заменяется плейсхолдером ?. Имена ТАБЛИЦ, КОЛОНОК и ключевые слова (ASC/DESC, LIMIT, OFFSET, GROUP BY, ORDER BY) ПАРАМЕТРИЗОВАТЬ НЕЛЬЗЯ. Парсер БД распарсивает SQL ДО подстановки параметров - на этапе разбора имена идентификаторов и keywords уже должны быть в строке. SELECT * FROM users ORDER BY ? - здесь ? может быть только value (например, порядковый номер ORDER BY 1), но не "name". Это не баг, а архитектура подготовленных запросов - так работает сетевой протокол PDO/MySQL/Postgres. Прямая дыра возникает, когда разработчик принимает имя колонки от пользователя для сортировки и подставляет в строку: ORDER BY {$_GET["sort"]} - классический SQL-injection ("id; DROP TABLE users--" в URL уничтожит базу). Аналогично с динамическими WHERE colname (имя колонки), таблицами, JOIN-ами. Решение - whitelist на стороне приложения: фиксированный список разрешённых полей, и если запрос пришёл вне него - либо подменить на дефолт, либо вернуть 422. В Laravel используют match, in_array или enum-валидацию. Для совсем сложных кейсов (динамические JOIN-ы, динамические колонки SELECT) - запрос собирается на стороне приложения по белому списку, никогда конкатенацией user input. То же самое относится к ASC/DESC: $direction = $request->input("dir") === "desc" ? "desc" : "asc"; - нельзя передавать произвольную строку. Бонус: LIMIT/OFFSET - это ЗНАЧЕНИЯ, их параметризовать можно (PDO с PDO::PARAM_INT для надёжности).',
+                'code_example' => '<?php
+// ❌ КРИТИЧНАЯ дыра - имя колонки от пользователя
+$sortField = $_GET[\'sort\']; // может быть "id; DROP TABLE users--"
+$users = DB::select("SELECT * FROM users ORDER BY $sortField"); // ⚠️ инъекция
+
+// ❌ Не защищает - прямая конкатенация direction
+$direction = $_GET[\'dir\']; // "ASC; DELETE FROM users--"
+DB::table("users")->orderByRaw("created_at $direction"); // ⚠️ инъекция
+
+// ✅ Whitelist разрешённых колонок
+$allowedSorts = [\'id\', \'created_at\', \'name\', \'email\'];
+$sortField = in_array($_GET[\'sort\'] ?? \'id\', $allowedSorts, true)
+    ? $_GET[\'sort\']
+    : \'id\';
+
+$direction = strtolower($_GET[\'dir\'] ?? \'asc\') === \'desc\' ? \'desc\' : \'asc\';
+
+$users = DB::table(\'users\')->orderBy($sortField, $direction)->get();
+
+// ✅ Через match (PHP 8.0+) или Form Request
+$sortField = match ($request->input(\'sort\')) {
+    \'name\', \'email\', \'created_at\' => $request->input(\'sort\'),
+    default => \'id\',
+};
+
+// ✅ В Form Request validation
+public function rules(): array {
+    return [
+        \'sort\' => \'in:id,name,email,created_at\',
+        \'dir\'  => \'in:asc,desc\',
+    ];
+}
+
+// Запомнить: через bindings можно ТОЛЬКО значения
+// Можно: WHERE id = ?, VALUES (?, ?), SET col = ?
+// Нельзя: ORDER BY ?, FROM ?, SELECT ? FROM users, GROUP BY ?
+
+// LIMIT/OFFSET - можно (значения)
+DB::select(\'SELECT * FROM users LIMIT ? OFFSET ?\', [20, 100]); // OK',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'database.sql_basics',
+            ],
         ];
     }
 }

@@ -472,6 +472,75 @@ Context::addHidden("tenant_id", $tenant->id);
                 'difficulty' => 4,
                 'topic' => 'laravel.misc',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Laravel Pennant и зачем он нужен?',
+                'answer' => 'Laravel Pennant - официальный пакет (composer require laravel/pennant) для управления feature flags. Решает задачи: 1) Trunk-based development - вливать незавершённую фичу в main за флагом, чтобы не держать долгоживущие feature-ветки. 2) Постепенный rollout - включить новую фичу 5% юзеров, потом 50%, потом всем; откатить быстро без редеплоя. 3) A/B-тестирование вариантов UI/алгоритма. 4) Kill switch - мгновенно отключить проблемную фичу при инциденте. 5) Feature gating по сегменту (только premium-юзеры, только определённые tenant-ы). Регистрация флага в provider через Feature::define(name, resolver), где resolver - замыкание, получающее scope (по умолчанию current user) и возвращающее bool/строку для variant-флагов. Проверка в коде: Feature::active("new-checkout") или $user->features()->active("new-checkout"). Хранение: array (in-memory, per-request) для тестов, database (persistent, дёшево), Redis (быстро). Variant-флаги дают больше двух состояний - "control" / "blue-button" / "green-button". Полезные методы: Lottery::odds() для случайной выборки процентом, when()/unless() в blade, scope() для не-юзерных скоупов (tenant, organisation). Тестирование: Feature::activate() / Feature::deactivate() в setUp. Альтернативы: Laravel Gate (только bool через политики), сторонние SaaS (LaunchDarkly, GrowthBook, Unleash) - богаче по UI и аналитике, дороже.',
+                'code_example' => '<?php
+// composer require laravel/pennant
+
+// AppServiceProvider::boot()
+use Laravel\\Pennant\\Feature;
+use Illuminate\\Support\\Lottery;
+
+public function boot(): void
+{
+    // Простой bool-флаг с правилом
+    Feature::define("new-checkout", fn (User $user) =>
+        $user->isInternal() ||                    // всегда для своих
+        $user->id % 10 === 0                       // и для 10% юзеров (стабильно по id)
+    );
+
+    // Variant-флаг (несколько вариантов)
+    Feature::define("homepage", fn (User $user) =>
+        Lottery::odds(1, 3)
+            ->winner(fn () => "blue")
+            ->loser(fn () => "control")
+            ->choose()
+    );
+
+    // По tenant вместо юзера
+    Feature::define("instant-search", fn (Team $team) =>
+        in_array($team->plan, ["pro", "enterprise"])
+    );
+}
+
+// Использование
+if (Feature::active("new-checkout")) {
+    return view("checkout.v2");
+}
+
+// Per-user
+if ($user->features()->active("new-checkout")) { /* ... */ }
+
+// Variant - получить текущий вариант
+$variant = Feature::value("homepage"); // "blue" | "control"
+
+// В Blade
+@feature("new-checkout")
+    <NewCheckout />
+@else
+    <OldCheckout />
+@endfeature
+
+// Принудительно для не-юзерного scope
+Feature::for($team)->active("instant-search");
+
+// В тестах
+public function test_new_checkout(): void
+{
+    Feature::activate("new-checkout"); // глобально
+    // ...
+    Feature::deactivate("new-checkout");
+}
+
+// Очистка кеша флагов
+Feature::flushCache();
+Feature::for($user)->forget("new-checkout");',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.misc',
+            ],
         ];
     }
 }

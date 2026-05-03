@@ -106,6 +106,48 @@ class C
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.traits',
+                'difficulty' => 4,
+                'question' => 'Какой приоритет у методов: класс vs трейт vs родитель?',
+                'answer' => 'PHP имеет строгий method resolution order для трейтов. Приоритет (от высшего к низшему): 1) Метод самого класса (определённый в нём напрямую). 2) Метод из подключённого трейта. 3) Метод унаследованный от родительского класса. То есть трейт ВСЕГДА переопределяет унаследованный метод от parent, но метод самого класса переопределяет трейт. Это критично для понимания миксин-механики PHP: трейт не "усиливает" класс, а буквально подмешивает свой код "поверх" родительского, но "под" собственный код класса. Если в нескольких трейтах одинаковый метод - это конфликт, и компилятор требует разрешить его через insteadof/as. Как проверить на практике: если ваш Eloquent-класс наследует Model (где есть scopeA), и подключил трейт с собственным scopeA - победит трейт; но если в самой User написать собственный scopeA - победит User. Применение знания: если хотите дать ровно гибкость "поведение по умолчанию из трейта, но возможность переопределить в классе" - просто оставляйте метод в трейте. Если нужна "подкладка" под parent - не сработает, метод класса всегда сверху parent через любой трейт.',
+                'code_example' => '<?php
+trait T
+{
+    public function hello(): string { return "from trait"; }
+}
+
+class ParentClass
+{
+    public function hello(): string { return "from parent"; }
+}
+
+// 1. Trait > Parent
+class A extends ParentClass
+{
+    use T;
+}
+echo (new A)->hello(); // "from trait"
+
+// 2. Class own > Trait
+class B extends ParentClass
+{
+    use T;
+    public function hello(): string { return "from B"; }
+}
+echo (new B)->hello(); // "from B"
+
+// 3. Trait может вызывать parent через parent::
+trait Logging
+{
+    public function save(): void
+    {
+        parent::save();        // ОК, обращается к методу parent класса
+        Log::info("saved");
+    }
+}',
+            ],
         ];
     }
 }

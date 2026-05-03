@@ -102,15 +102,21 @@ $merged = [...$a, ...$b];',
             [
                 'category' => 'PHP',
                 'question' => 'Как проверить наличие элемента в массиве?',
-                'answer' => 'in_array($needle, $haystack) - проверяет значение, без третьего параметра делает нестрогое сравнение (опасно!). Третий параметр true - строгое сравнение. array_search - возвращает ключ найденного значения или false. isset($arr[$key]) - проверяет наличие ключа (но false если значение null). array_key_exists - проверяет ключ даже если значение null. Для больших массивов в горячем пути лучше делать массив "ключ => true".',
+                'answer' => 'in_array($needle, $haystack) - проверяет значение, без третьего параметра делает нестрогое сравнение (опасно!). Третий параметр true - строгое сравнение. array_search - возвращает ключ найденного значения или false. ⚠️ Классическая ловушка: array_search для первого элемента вернёт ключ 0, а 0 == false → true, поэтому ВСЕГДА сравнивайте через !== false, а не через == false / !$result. Та же проблема у strpos. isset($arr[$key]) - проверяет наличие ключа (но false если значение null). array_key_exists - проверяет ключ даже если значение null. Для больших массивов в горячем пути лучше делать массив "ключ => true" через array_flip + isset (O(1) вместо O(N)). С PHP 8.4 для коротких сценариев есть array_any / array_all / array_find / array_find_key - возвращают bool/значение и останавливаются на первом совпадении.',
                 'code_example' => '<?php
 $users = ["Иван", "Аня", "Петя"];
 
 var_dump(in_array("Аня", $users));      // true
 var_dump(in_array("0", $users, true));  // false (строго)
 
-$key = array_search("Петя", $users);     // 2
-$key = array_search("X", $users);        // false
+$key = array_search("Иван", $users);    // int(0) - первый элемент!
+
+// ❌ Опасно - 0 == false → true, считаем "не найдено"
+if ($key == false) { echo "not found"; } // НЕВЕРНО для первого элемента
+
+// ✅ Правильно - строгое сравнение
+if ($key === false) { echo "not found"; }
+if (($key = array_search("X", $users)) !== false) { /* нашли */ }
 
 $data = ["name" => null];
 isset($data["name"]);              // false (null!)
@@ -260,6 +266,44 @@ $q = new SplQueue();
 $q->enqueue("a"); $q->dequeue(); // обе O(1), без сдвигов',
                 'code_language' => 'php',
                 'difficulty' => 4,
+                'topic' => 'php.arrays',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'В чём разница между array_slice и array_splice?',
+                'answer' => 'Похожие имена - совершенно разное поведение, классический вопрос-ловушка. array_slice($arr, $offset, $length) - ИММУТАБЕЛЕН: возвращает новый массив с куском исходного, оригинал не трогает. По умолчанию пере-индексирует целочисленные ключи (пере-нумерация), строковые сохраняет; чтобы сохранить и числовые - четвёртый аргумент preserve_keys=true. array_splice(&$arr, $offset, $length, $replacement) - МУТИРУЕТ: вырезает из исходного массива указанный кусок (через ссылку), возвращает вырезанные элементы, и опционально вставляет на их место $replacement (массив или одно значение). Целочисленные ключи всегда пере-нумеруются, строковые сохраняются. Удобно для "удалить элемент по индексу", "заменить кусок". Senior-приём: array_splice через ссылку - редкий случай, когда стандартная функция мутирует аргумент; легко не заметить, что массив изменился. Для иммутабельного "удалить элемент" используй array_diff_key + array_values или array_filter.',
+                'code_example' => '<?php
+$arr = [10, 20, 30, 40, 50];
+
+// array_slice - копия
+$piece = array_slice($arr, 1, 2);
+// $piece = [20, 30]
+// $arr   = [10, 20, 30, 40, 50] - не изменился
+
+// array_splice - мутирует, возвращает вырезанное
+$cut = array_splice($arr, 1, 2);
+// $cut = [20, 30]
+// $arr = [10, 40, 50] - элементы удалены, ключи пере-нумерованы
+
+// array_splice + замена
+$arr = [10, 20, 30, 40, 50];
+array_splice($arr, 1, 2, ["a", "b", "c"]);
+// $arr = [10, "a", "b", "c", 40, 50]
+
+// preserve_keys для slice
+$assoc = ["x" => 1, 5 => "z", "y" => 2];
+print_r(array_slice($assoc, 1, 2));
+// ["x"=>... убрано, числовой ключ пере-нумерован]
+print_r(array_slice($assoc, 1, 2, preserve_keys: true));
+// числовые ключи сохранены
+
+// "Удалить элемент по индексу" - частый use case
+unset($arr[2]);                    // оставит "дыру" в индексах [0,1,3,4]
+array_splice($arr, 2, 1);          // переиндексирует, удалит элемент
+$arr = array_values(array_filter($arr, fn($_, $i) => $i !== 2,
+                                  ARRAY_FILTER_USE_BOTH)); // immutable',
+                'code_language' => 'php',
+                'difficulty' => 3,
                 'topic' => 'php.arrays',
             ],
         ];

@@ -296,6 +296,100 @@ public function validate(string $jwt): User
                 'difficulty' => 4,
                 'topic' => 'system_design.security',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Почему для шифрования в PHP сейчас рекомендуют sodium_*, а не openssl_*?',
+                'answer' => 'libsodium (расширение sodium, входит в стандарт PHP 7.2+) - современная криптографическая библиотека от Daniel J. Bernstein и команды, спроектированная по принципу "secure by default". OpenSSL - универсальный инструмент с тысячами опций, многие из которых небезопасны или устарели. Главные различия. 1) Защита от ошибок API. В sodium практически нечего настраивать: sodium_crypto_secretbox($plaintext, $nonce, $key) - один правильный набор примитивов (XSalsa20-Poly1305 или ChaCha20-Poly1305), authenticated encryption из коробки, защита от подмены шифротекста. В OpenSSL вы выбираете cipher (AES-128/256), mode (CBC/CTR/GCM), padding, IV длину - и шанс выбрать небезопасное (CBC без HMAC = padding oracle attack) огромен. 2) Современная криптография. ChaCha20-Poly1305 быстрее AES на устройствах без AES-NI (мобилки, embedded), Curve25519/Ed25519 для подписей, BLAKE2 для хешей, Argon2id для KDF. 3) Защита от side-channel. Все sodium-функции выполняются за константное время - устойчивы к timing-атакам. В OpenSSL это надо думать самому (и ошибаться). 4) Меньшая поверхность атаки: ~50 функций sodium vs тысячи openssl. 5) Forward secrecy и nonce-misuse resistant конструкции. Когда что: новый код - sodium всегда, кроме специфичных случаев (нужны конкретные cipher для совместимости со сторонним сервером, X.509-сертификаты, S/MIME). OpenSSL остаётся для совместимости, парсинга сертификатов, специфичных алгоритмов. Laravel\'s Crypt fasade под капотом использует openssl AES-256-CBC + HMAC - не идеал, но рабочий MAC-then-encrypt; для нового кода в проекте лучше отдельный сервис на sodium.',
+                'code_example' => '<?php
+// ✅ sodium - secure by default
+$key = sodium_crypto_secretbox_keygen(); // 32 байта, безопасный random
+$nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES); // 24 байта
+$ciphertext = sodium_crypto_secretbox("секретное сообщение", $nonce, $key);
+
+// расшифровка с проверкой целостности (вернёт false при подмене)
+$plaintext = sodium_crypto_secretbox_open($ciphertext, $nonce, $key);
+if ($plaintext === false) throw new RuntimeException("tampered");
+
+// Хеширование паролей (Argon2id - state-of-the-art)
+$hash = sodium_crypto_pwhash_str(
+    $password,
+    SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE,
+    SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE,
+);
+sodium_crypto_pwhash_str_verify($hash, $password); // bool
+
+// Подписи (Ed25519)
+[$sk, $pk] = [sodium_crypto_sign_keypair(), /* ... */];
+$signed = sodium_crypto_sign_detached($message, $sk);
+sodium_crypto_sign_verify_detached($signed, $message, $pk);
+
+// ⚠️ openssl - те же задачи, но легко ошибиться
+// AES-256-GCM (правильный выбор) - но многие пишут AES-256-CBC + забывают HMAC
+$iv = random_bytes(openssl_cipher_iv_length("aes-256-gcm"));
+$tag = "";
+$ciphertext = openssl_encrypt(
+    "сообщение", "aes-256-gcm", $key, OPENSSL_RAW_DATA, $iv, $tag, "", 16
+);
+// для расшифровки нужно сохранить и iv, и tag - забыл tag - нет проверки целостности
+
+// Затирание чувствительных данных в памяти
+sodium_memzero($password); // у openssl такого нет',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'System Design',
+                'question' => 'В чём разница между OAuth 2.0 и OpenID Connect (OIDC)?',
+                'answer' => 'Это РАЗНЫЕ вещи, которые часто путают, и на собеседованиях ловят на подмене понятий. OAuth 2.0 - протокол АВТОРИЗАЦИИ (authorization). Решает задачу "пользователь разрешил приложению X доступ к API сервиса Y от своего имени". На выходе - access_token, который вы предъявляете API. OAuth НЕ говорит, кто этот пользователь и не предназначен для аутентификации - это только делегирование прав. Есть несколько flow: Authorization Code (с PKCE для SPA/mobile - стандарт сегодня), Client Credentials (machine-to-machine, нет юзера), Device Code (TV/IoT), Refresh Token. Implicit и Resource Owner Password Credentials - устаревшие, не использовать. OpenID Connect (OIDC) - надстройка над OAuth 2.0 для АУТЕНТИФИКАЦИИ. Решает "кто этот пользователь и как мне получить его профиль". Добавляет к OAuth flow id_token (всегда JWT, не как access_token, который может быть opaque) с claims: sub (user id), email, name, picture, email_verified, и подписан издателем (issuer). Endpoints: /.well-known/openid-configuration (discovery - как найти все остальные ручки), /authorize, /token, /userinfo (получить профиль по access_token), /jwks (открытый ключ для проверки подписи id_token). Когда что использовать: 1) Хотите дать "Войти через Google/GitHub" - OIDC, нужен id_token чтобы понять кто залогинился. 2) Делаете API gateway, который пропускает access_token к downstream сервисам - OAuth 2.0. 3) Машина-машина (cron вызывает API) - OAuth 2.0 Client Credentials. Практическое следствие путаницы: использовать access_token для аутентификации (читать "sub" и считать юзера залогиненным) - анти-паттерн, токен может быть opaque, или предназначен для другой audience, или вообще не содержать user info. Для аутентификации - id_token из OIDC. В Laravel: Socialite поддерживает оба - провайдеры Google/GitHub/etc используют OIDC под капотом, но в коде вы видите $user->getEmail() / getName() от Socialite-обёртки.',
+                'code_example' => '<?php
+// OIDC flow с Laravel Socialite (Google login)
+// routes/web.php
+Route::get("/login/google", fn () => Socialite::driver("google")->redirect());
+Route::get("/login/google/callback", function () {
+    $googleUser = Socialite::driver("google")->user();
+    // под капотом: получили code → обменяли на access_token + id_token
+    // Socialite верифицировал id_token и распарсил claims
+
+    $user = User::updateOrCreate(
+        ["email" => $googleUser->getEmail()],
+        ["name" => $googleUser->getName(), "google_id" => $googleUser->getId()]
+    );
+
+    Auth::login($user); // классическая cookie-сессия Laravel - аутентификация юзера
+});
+
+// OAuth 2.0 (без OIDC) - доступ к чужому API от имени юзера
+$response = Http::withToken($accessToken)
+    ->get("https://api.dropbox.com/2/files/list_folder", ["path" => "/"]);
+
+// Client Credentials - сервис-сервис
+$token = Http::asForm()->post("https://auth.example.com/oauth/token", [
+    "grant_type" => "client_credentials",
+    "client_id" => env("CLIENT_ID"),
+    "client_secret" => env("CLIENT_SECRET"),
+    "scope" => "orders.read",
+])->json("access_token");
+
+// ID Token (JWT с user claims) - выдаётся OIDC, НЕ OAuth
+// {
+//   "iss": "https://accounts.google.com",
+//   "sub": "1234567890",
+//   "aud": "your-client-id.apps.googleusercontent.com",
+//   "email": "user@example.com",
+//   "email_verified": true,
+//   "name": "John Doe",
+//   "iat": 1717000000,
+//   "exp": 1717003600
+// }
+// Подпись проверяется по JWKS issuer-а: GET https://accounts.google.com/.well-known/openid-configuration
+
+// ❌ Анти-паттерн: использовать access_token как identity
+// access_token может быть opaque, иметь aud другого ресурса, не содержать user info',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
         ];
     }
 }

@@ -252,6 +252,42 @@ class OrderSagaOrchestrator
                 'difficulty' => 4,
                 'topic' => 'system_design.architecture',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Что такое Strangler Fig pattern и как им безопасно распилить монолит?',
+                'answer' => 'Strangler Fig (Strangler Application) - паттерн от Мартина Фаулера для постепенной замены legacy-системы новой, без полного переписывания "всё с нуля" (Big Bang rewrite, который проваливается в большинстве случаев из-за scope creep, потерянной бизнес-логики и год без релизов). Аналогия из природы: фиговое дерево обвивает старое дерево, постепенно "душит" его и в конце концов занимает его место - старое дерево становится опорой и в итоге погибает. В коде так же: новая система растёт вокруг старой, забирая по одной функции, пока legacy не остаётся пустой оболочкой. Механика: 1) Перед монолитом ставится фасад - API Gateway, reverse-proxy (nginx/HAProxy/Envoy), service mesh, или просто роутер на уровне фреймворка. 2) Все запросы пока идут в монолит как обычно. 3) Создаётся новый сервис с одной (!) функциональностью - например, "регистрация пользователей". 4) На фасаде роут "POST /users" переключается с монолита на новый сервис. Все остальные роуты по-прежнему идут в монолит. 5) Шаг повторяется для других областей: каждый раз - один эндпоинт, один use-case, один bounded context. Месяцами и годами. 6) В конце монолит больше ничего не обслуживает - его выключают. Плюсы: 1) Постоянная работа с прода - можно откатить любой шаг. 2) Бизнес продолжает релизить фичи параллельно. 3) Снижение риска - на любом этапе можно остановиться. 4) Легко обоснуется бизнесу (incremental value). Подводные камни: 1) Общая БД - часто новый сервис вынужден читать монолитную БД, создаётся anti-corruption layer / replicated read-store через CDC. 2) Аутентификация и сессии - решается через единый Auth-сервис или валидацию JWT в обоих. 3) Транзакции, которые были одной DB-транзакцией в монолите, становятся распределёнными - нужны Saga/Outbox. 4) Дольше живёт суммарно (год legacy + год переписывания), но риск меньше. 5) Команда должна быть дисциплинированной - иначе новые фичи будут добавляться и в монолит, и в микросервис, и удушения не произойдёт.',
+                'code_example' => '# Шаг 0: всё в монолите
+# nginx.conf
+location / { proxy_pass http://monolith; }
+
+# Шаг 1: вынесли регистрацию в новый сервис
+# nginx.conf
+location /users { proxy_pass http://users-service; }
+location /     { proxy_pass http://monolith; }
+
+# Шаг N: большая часть функций мигрировала
+location /users    { proxy_pass http://users-service; }
+location /orders   { proxy_pass http://orders-service; }
+location /payments { proxy_pass http://payments-service; }
+location /billing  { proxy_pass http://billing-service; }
+location /     { proxy_pass http://monolith; }   # последние 5% - reports/admin
+
+# Шаг финал: монолит мёртв
+# location / уходит через тот же gateway, монолит выключаем
+
+# Для сложных случаев: branch-by-abstraction внутри монолита
+# 1) интерфейс UserService
+# 2) две реализации: LegacyUserService (DB monolith), RemoteUserService (HTTP к новому)
+# 3) feature flag (Pennant) переключает между ними
+# 4) сначала 1% юзеров на Remote, потом 50%, потом 100% - и удаляется LegacyUserService
+
+# Anti-corruption layer (DDD): новый сервис общается со старым через адаптер,
+# который переводит legacy data model в чистую domain-модель нового сервиса.
+# Так legacy не загрязняет новый код своей семантикой.',
+                'code_language' => 'bash',
+                'difficulty' => 4,
+                'topic' => 'system_design.architecture',
+            ],
         ];
     }
 }

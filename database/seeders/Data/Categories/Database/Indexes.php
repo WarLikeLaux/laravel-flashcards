@@ -173,6 +173,44 @@ CREATE INDEX idx_users_created
                 'difficulty' => 4,
                 'topic' => 'database.indexes',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Всегда ли индекс (A, B) бесполезен при WHERE B = 10? Что такое Index Skip Scan?',
+                'answer' => 'Классическая теория B-tree говорит "leftmost prefix": композитный индекс (A, B) бесполезен для запроса WHERE B=10 - нужен либо отдельный индекс по B, либо WHERE с обоими столбцами. Это так в наивной реализации, потому что внутри B-tree значения B сгруппированы внутри каждой подгруппы по A, а не глобально отсортированы. Однако современные оптимизаторы умеют делать Index Skip Scan, когда КАРДИНАЛЬНОСТЬ ПЕРВОЙ КОЛОНКИ НИЗКАЯ. Идея: если у A только 2 уникальных значения ("M" и "F" в gender), оптимизатор перебирает уникальные значения A и для каждого делает обычный поиск по B - под капотом получается WHERE A="M" AND B=10 UNION ALL WHERE A="F" AND B=10. На индексе (gender, login_at) это работает; на индексе (user_id, login_at) с миллионом уникальных user_id - не сработает (skip scan на каждый user_id будет дороже full scan). Поддержка по СУБД. Oracle - есть с 9i (2001), документирован. MySQL - с 8.0.13 (2018), называется "Skip Scan range access method", виден в EXPLAIN как "Using index for skip scan". PostgreSQL - НЕТ нативно (на конец 2025), есть extension и патчи в активной разработке для PG 17+. SQL Server - есть в форме Skip Read для определённых сценариев. Практический вывод: если у вас Postgres - не полагайтесь на skip scan, создавайте отдельный индекс по B (или (B, A) если он чаще используется). На MySQL/Oracle для "леворукого" использования композитного индекса с низкокардинальной первой колонкой skip scan может спасти ситуацию, но всё равно лучше - правильный композит. Принцип проектирования: "сначала равенство, потом range" - WHERE A=1 AND B>10 хорошо ляжет на (A, B); порядок частоты использования - редко используемая колонка идёт последней или выносится в отдельный индекс.',
+                'code_example' => '-- MySQL 8.0+: Index Skip Scan
+CREATE TABLE users (
+    id        INT PRIMARY KEY,
+    gender    CHAR(1),       -- 2 уникальных значения, идеально для skip scan
+    last_login DATETIME,
+    INDEX idx_gender_login (gender, last_login)
+);
+
+-- Запрос только по второй колонке индекса
+EXPLAIN SELECT id FROM users WHERE last_login > NOW() - INTERVAL 1 HOUR;
+-- Extra: "Using index for skip scan" - оптимизатор сам нашёл способ
+
+-- Проверка через EXPLAIN ANALYZE
+EXPLAIN FORMAT=TREE SELECT * FROM users WHERE last_login > NOW();
+-- Skip scan on idx_gender_login over last_login
+
+-- ❌ Не сработает - высокая кардинальность первой колонки
+CREATE INDEX idx_user_login ON events (user_id, created_at);
+-- WHERE created_at > NOW() - skip scan по миллиону user_id
+-- хуже full table scan, оптимизатор откажется
+
+-- ✅ Лучшее решение - отдельный индекс если запрос часто только по B
+CREATE INDEX idx_events_created ON events (created_at);
+
+-- В Postgres skip scan нет - сразу делайте отдельный индекс
+-- если есть только индекс (gender, last_login), Postgres сделает Seq Scan
+
+-- Принцип: equality columns first, range columns last
+-- Хороший: WHERE status=\'active\' AND created_at > X с индексом (status, created_at)
+-- Плохой:  WHERE created_at > X с индексом (status, created_at) без skip scan',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
         ];
     }
 }

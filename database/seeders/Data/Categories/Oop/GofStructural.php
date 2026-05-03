@@ -233,6 +233,76 @@ class ImageProxy implements Image // ленивый
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.gof_structural',
+                'difficulty' => 4,
+                'question' => 'Чем Proxy отличается от Decorator? Структурно ведь они почти одинаковые',
+                'answer' => 'Структурно они действительно почти близнецы: оба реализуют общий интерфейс с целевым объектом, оба держат ссылку на него и делегируют вызовы. Разница - в НАМЕРЕНИИ (intent) и в ответственности за управление целевым объектом. DECORATOR добавляет/расширяет поведение цели: логирование, кеширование результата, шифрование, валидация - его задача "обогатить" объект новой функциональностью без изменения его API. Decorator-ы можно компоновать в стек: Cache(Validate(Logger(Repo))). Целевой объект обычно ПЕРЕДАЁТСЯ извне (через конструктор) - decorator не управляет его жизненным циклом. PROXY контролирует ДОСТУП к цели: ленивая инициализация (виртуальный proxy создаёт целевой объект только при первом обращении), контроль прав (отказывает в вызове без аутентификации), удалённый доступ (RPC/RMI), кеширование (smart proxy). Proxy часто САМ управляет жизненным циклом цели: создаёт по требованию, может вообще никогда её не создать, может закешировать результат и не обращаться повторно. Простое мнемо-правило. Decorator: "клиент дал мне X, я хочу обогатить X новым поведением" - оба объекта живы, decorator не лезет в lifecycle. Proxy: "клиент думает, что обращается к X, но я представляю X (которого может ещё/уже не быть) и решаю, как с ним общаться". Laravel-примеры: Decorator - middleware (каждый middleware оборачивает next), Pipeline. Proxy - Eloquent relations при ленивой загрузке, Mockery proxies, Doctrine entity proxies (ORM создаёт прокси-наследник для lazy loading связей).',
+                'code_example' => '<?php
+interface Repository { public function find(int $id): User; }
+
+class UserRepo implements Repository
+{
+    public function find(int $id): User { /* heavy DB query */ }
+}
+
+// DECORATOR - обогащаем поведение, объект передан извне
+final class CachingRepo implements Repository
+{
+    public function __construct(private Repository $inner, private Cache $cache) {}
+
+    public function find(int $id): User
+    {
+        return $this->cache->remember(
+            "user:$id", 300,
+            fn() => $this->inner->find($id), // делегирует
+        );
+    }
+}
+
+final class LoggingRepo implements Repository
+{
+    public function __construct(private Repository $inner) {}
+    public function find(int $id): User
+    {
+        Log::info("find user", ["id" => $id]);
+        return $this->inner->find($id);
+    }
+}
+
+$repo = new CachingRepo(new LoggingRepo(new UserRepo()), $cache);
+// стекуем decorators
+
+// PROXY - контролируем доступ и жизненный цикл цели
+final class LazyUserRepo implements Repository
+{
+    private ?Repository $real = null; // ещё не создан
+
+    public function __construct(private Container $c) {}
+
+    public function find(int $id): User
+    {
+        // создаём цель только когда реально нужна
+        $this->real ??= $this->c->make(UserRepo::class);
+        return $this->real->find($id);
+    }
+}
+
+final class AuthorizedRepo implements Repository
+{
+    public function __construct(private Repository $inner, private User $user) {}
+
+    public function find(int $id): User
+    {
+        if (! $this->user->can("users.read")) {
+            throw new AccessDeniedException;
+        }
+        return $this->inner->find($id);
+    }
+}',
+                'code_language' => 'php',
+            ],
         ];
     }
 }

@@ -180,6 +180,69 @@ $this->cleanup(); // close DB, flush metrics
                 'difficulty' => 4,
                 'topic' => 'system_design.devops',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Как сделать миграцию БД (rename column, drop column) без downtime в blue-green деплое?',
+                'answer' => 'Прямая миграция RENAME/DROP/изменение типа колонки во время blue-green или rolling-деплоя ломает приложение, потому что в момент миграции одновременно работают ДВЕ версии кода: старая (работающие воркеры/инстансы, ещё не перекатились) и новая. Если старый код ждёт колонку email, а вы её только что удалили - старые поды падают. Решение - паттерн Expand and Contract (Parallel Change), 5 шагов. 1) EXPAND. Создаём НОВУЮ колонку (добавление - всегда безопасная операция в современных БД, кроме случаев с DEFAULT в PG старее 11 - там переписывается вся таблица). Старая колонка живая, новая пустая или с дефолтом. Деплоим миграцию, прод не трогаем. 2) DUAL WRITE. Деплоим код, который пишет В ОБЕ колонки (старую и новую) при каждом UPDATE/INSERT. Читает пока из старой - чтобы старые поды и новые видели одинаковые данные во время rolling rollout. 3) BACKFILL. Запускаем миграцию данных: копируем существующие записи из старой колонки в новую (через chunkById, чтобы не залочить таблицу). После backfill: новая колонка имеет полные актуальные данные. 4) SWITCH READS. Деплоим код, который ЧИТАЕТ из новой колонки, но всё ещё пишет в обе. Если что-то сломалось - откатываемся, старая колонка цела. 5) STOP DUAL WRITE + DROP. Деплоим код, который пишет и читает только из новой. Когда уверены, что нигде не используется старая - отдельным релизом DROP COLUMN (миграция). Применимо ко всем "разрушительным" изменениям: rename column, change type, разделение таблицы, объединение, удаление таблицы. Каждый шаг - отдельный деплой, между ними проходят часы или дни (особенно перед DROP, чтобы убедиться, что ничего не использует старое). В Laravel: пишите миграции в обоих направлениях (up/down), не объединяйте expand и contract в одном файле миграций. PostgreSQL: для больших таблиц следить за блокировками - ALTER TABLE без DEFAULT обычно мгновенен (в 11+), CREATE INDEX CONCURRENTLY (не блокирует записи), DROP COLUMN мгновенен (но физически место освободится только после VACUUM FULL).',
+                'code_example' => '<?php
+// Сценарий: переименовать users.username → users.handle
+
+// Релиз 1 (EXPAND): миграция добавляет новую колонку
+Schema::table("users", function (Blueprint $table) {
+    $table->string("handle")->nullable()->index();
+});
+
+// Релиз 2 (DUAL WRITE): код пишет в обе, читает из старой
+class User extends Model
+{
+    protected static function booted(): void
+    {
+        static::saving(function (User $u) {
+            if ($u->isDirty("username")) {
+                $u->handle = $u->username; // зеркалим
+            }
+        });
+    }
+
+    public function getDisplayName(): string
+    {
+        return $this->username; // читаем из старой
+    }
+}
+
+// Релиз 3 (BACKFILL): команда заполняет историю
+// php artisan app:backfill-handle
+User::whereNull("handle")->chunkById(1000, function ($users) {
+    foreach ($users as $u) {
+        $u->update(["handle" => $u->username]);
+    }
+});
+
+// Релиз 4 (SWITCH READS): читаем из новой, всё ещё пишем в обе
+public function getDisplayName(): string
+{
+    return $this->handle; // ← переключили
+}
+
+// Релиз 5 (CONTRACT): убираем dual-write
+class User extends Model
+{
+    // saving-хук удалён, работаем только с handle
+}
+
+// Релиз 6 (CLEANUP): миграция DROP старой колонки
+Schema::table("users", function (Blueprint $table) {
+    $table->dropColumn("username");
+});
+
+// Подводный камень PG: ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT \'x\'
+// в PG < 11 переписывает всю таблицу (часы на больших таблицах + access exclusive lock).
+// В PG 11+ NOT NULL DEFAULT - метаданные, мгновенно.
+// Безопасно везде: ADD COLUMN nullable → backfill → ALTER COLUMN SET NOT NULL.',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.devops',
+            ],
         ];
     }
 }

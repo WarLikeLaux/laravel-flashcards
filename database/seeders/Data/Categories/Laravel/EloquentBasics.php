@@ -185,30 +185,60 @@ $users = DB::table(\'users\')
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое DB::transaction и как работают вложенные транзакции?',
-                'answer' => 'DB::transaction оборачивает код в транзакцию: если внутри callback бросается исключение - rollback, иначе - commit. Поддерживаются deadlock-retries (второй аргумент). Альтернатива: DB::beginTransaction, DB::commit, DB::rollBack вручную. Важный нюанс про вложенные транзакции: в MySQL/Postgres настоящих nested transactions НЕ существует, Laravel эмулирует их через SAVEPOINT. Из этого вытекает классическая ловушка: если ВНЕШНЯЯ транзакция откатится, откатятся и все ранее "успешно закоммиченные" внутренние - они были лишь точками отката, не самостоятельными транзакциями. Поэтому события/уведомления, которые должны сработать только после фактического коммита, оборачивают в DB::afterCommit() или используют свойство $afterCommit на job/listener.',
-                'code_example' => 'DB::transaction(function () {
+                'answer' => 'DB::transaction оборачивает код в транзакцию: если внутри callback бросается исключение - rollback, иначе - commit. Поддерживаются deadlock-retries (второй аргумент). Альтернатива: DB::beginTransaction, DB::commit, DB::rollBack вручную. Важный нюанс про вложенные транзакции: в MySQL/Postgres настоящих nested transactions НЕ существует, Laravel эмулирует их через SAVEPOINT. Из этого вытекает несколько ловушек. 1) Если ВНЕШНЯЯ транзакция откатится, откатятся и все ранее "успешно закоммиченные" внутренние - они были лишь RELEASE SAVEPOINT, не самостоятельными коммитами. Поэтому события/уведомления, которые должны сработать только после фактического коммита, оборачивают в DB::afterCommit() или используют свойство $afterCommit. 2) PostgreSQL-специфика: после ЛЮБОЙ ошибки SQL внутри транзакции она переходит в состояние "current transaction is aborted" - все следующие запросы возвращают "current transaction is aborted, commands ignored until end of transaction block", пока не сделать ROLLBACK или ROLLBACK TO SAVEPOINT. Хорошая новость: DB::transaction(callable) АВТОМАТИЧЕСКИ ловит исключение, вызывает $this->rollBack() (= ROLLBACK TO SAVEPOINT для вложенных) и пробрасывает исключение наружу - выловив его во внешнем callback, можно безопасно продолжать (savepoint уже откачен). 3) Опасный паттерн возникает при РУЧНОМ DB::beginTransaction: если вы поймали исключение через try/catch и НЕ вызвали DB::rollBack() сами, в PG транзакция остаётся в aborted state, и все следующие запросы упадут. То же самое если ловить исключение НА УРОВНЕ savepoint, но не в обёртке DB::transaction. Правило: используйте DB::transaction(callable) и не глотайте исключения внутри без явного rollBack.',
+                'code_example' => '<?php
+// ✅ Закрытая форма - Laravel сам ловит и rollback-ает (включая SAVEPOINT)
+DB::transaction(function () {
     User::create([...]);
     Post::create([...]);
 }, attempts: 3);
 
-// Вручную
+// ✅ Вложенные через DB::transaction - savepoint автоматически откатывается
+DB::transaction(function () {
+    try {
+        DB::transaction(function () {
+            User::create([...]);     // SAVEPOINT trans2
+            throw new RuntimeException("oops"); // ROLLBACK TO SAVEPOINT trans2
+        });
+    } catch (RuntimeException) {
+        // savepoint уже откачен Laravel-ом, можно продолжать
+        Order::create([...]);        // в PG это сработает корректно
+    }
+});
+
+// ❌ Ручной beginTransaction + проглоченное исключение - в PG ломается
 DB::beginTransaction();
 try {
-    // ...
+    User::query()->insert([...invalid...]);  // SQL error
+} catch (Throwable $e) {
+    Log::error($e); // НЕ вызвали rollBack!
+}
+User::create([...]); // ⚠️ PG: "current transaction is aborted"
+
+// ✅ Правильно: всегда rollBack после catch при ручном управлении
+DB::beginTransaction();
+try {
+    /* ... */
     DB::commit();
-} catch (\Throwable $e) {
+} catch (Throwable $e) {
     DB::rollBack();
     throw $e;
 }
 
-// Ловушка вложенности: внутренний "commit" - это RELEASE SAVEPOINT,
-// откат внешней транзакции отменит и его.
+// Ловушка #1: откат внешней транзакции отменит "закоммиченную" внутреннюю
 DB::transaction(function () use ($order) {
     DB::transaction(function () use ($order) {
-        $order->update([\'status\' => \'paid\']); // SAVEPOINT trans2
+        $order->update(["status" => "paid"]); // SAVEPOINT trans2
     }); // RELEASE SAVEPOINT trans2 - "закоммичено"
 
-    throw new \RuntimeException(\'fail\'); // откатит ВСЁ, включая update выше
+    throw new RuntimeException("fail"); // откатит ВСЁ, включая update выше
+});
+
+// Поэтому события - через afterCommit
+DB::transaction(function () use ($user) {
+    $user->save();
+    DB::afterCommit(fn () => Mail::send(new WelcomeMail($user)));
+    // отправится только после реального коммита самой ВНЕШНЕЙ транзакции
 });',
                 'code_language' => 'php',
                 'difficulty' => 3,

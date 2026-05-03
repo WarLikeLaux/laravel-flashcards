@@ -542,18 +542,22 @@ opcache.save_comments=1        ; нужно для аннотаций
             [
                 'category' => 'PHP',
                 'question' => 'Что такое JIT в PHP 8?',
-                'answer' => 'JIT (Just-In-Time компиляция) - функция PHP 8+, которая компилирует "горячий" опкод в нативный машинный код прямо во время выполнения. Простыми словами: вместо интерпретации байт-кода - выполняется напрямую процессором. Включается через opcache.jit. Реально ускоряет CPU-bound задачи (математика, обработка изображений, шифры). Для типичных веб-приложений (БД, сеть) ускорения почти не даёт - там бутылочное горло не CPU.',
-                'code_example' => '; php.ini для JIT
+                'answer' => 'JIT (Just-In-Time компиляция) - функция PHP 8+ (часть расширения OPcache), компилирует "горячий" опкод в нативный машинный код через DynASM прямо во время выполнения. Простыми словами: вместо интерпретации байткода - выполняется напрямую процессором. Включается через opcache.enable=1 + opcache.jit_buffer_size + opcache.jit=tracing|function. Важно для PHP 8.4: числовая форма флага (вроде 1255) объявлена deprecated - используйте именованные значения tracing / function / on / off / disable. Реально ускоряет CPU-bound задачи (математика, обработка изображений, шифры). Для типичных веб-приложений (БД, сеть) ускорения почти не даёт - бутылочное горло не CPU.',
+                'code_example' => '; php.ini для JIT - современная (PHP 8.4+) форма
 opcache.enable=1
 opcache.jit_buffer_size=256M
-opcache.jit=tracing  ; или 1255 (числовой)
+opcache.jit=tracing             ; именованная форма
+; opcache.jit=1255              ; ⚠️ deprecated в PHP 8.4 - не используйте
 
-; Режимы:
-; tracing - анализирует частые пути
-; function - на уровне функций
-; disable - выключен
+; Допустимые именованные значения:
+; tracing  - анализирует частые пути выполнения (рекомендуется)
+; function - JIT на уровне функций
+; on       - синоним tracing
+; off / disable - выключить
 
-; Проверка через opcache_get_status()["jit"]',
+; Проверка во время выполнения
+print_r(opcache_get_status(false)["jit"]);
+// ["enabled" => true, "on" => true, "kind" => 5, ...]',
                 'code_language' => 'bash',
                 'difficulty' => 5,
                 'topic' => 'php.composer_autoload',
@@ -1233,7 +1237,7 @@ opcache.preload=/var/www/preload.php',
             [
                 'category' => 'PHP',
                 'question' => 'Как работает JIT в PHP 8 и в каких задачах он реально ускоряет?',
-                'answer' => 'JIT (tracing/function режимы) компилирует горячий байткод в машинный код через DynASM. Для типичных веб-приложений выигрыш скромный, потому что бутылочное горлышко - IO/база, а не CPU. Реальный профит - на CPU-bound задачах: вычислениях, image-processing, парсерах, ML-инференсе. Включается через opcache.jit_buffer_size и opcache.jit=tracing в php.ini.',
+                'answer' => 'JIT (tracing/function режимы) компилирует горячий байткод в машинный код через DynASM. Для типичных веб-приложений выигрыш скромный, потому что бутылочное горлышко - IO/база, а не CPU. Реальный профит - на CPU-bound задачах: вычислениях, image-processing, парсерах, ML-инференсе. Включается через opcache.jit_buffer_size и opcache.jit=tracing в php.ini. Важный апдейт PHP 8.4: числовая форма флага (тип 1255, 1235, 1101) объявлена deprecated - используйте именованные значения tracing / function / on / off / disable. JIT остаётся частью расширения OPcache, отдельного pecl-пакета не появилось.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 5,

@@ -116,7 +116,7 @@ class Post extends Model {
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Observers в Laravel?',
-                'answer' => 'Observer - это класс, который слушает события модели (creating, created, updating, updated, deleting, deleted, restoring, restored). Простыми словами: когда что-то происходит с моделью, observer выполняет код. Регистрируется в EventServiceProvider или через атрибут #[ObservedBy].',
+                'answer' => 'Observer - это класс, который слушает события модели (creating, created, updating, updated, deleting, deleted, restoring, restored). Простыми словами: когда что-то происходит с моделью, observer выполняет код. Способы регистрации: 1) Атрибут #[ObservedBy(UserObserver::class)] над классом модели (Laravel 11+, рекомендуется - регистрация рядом с моделью). 2) Вручную через User::observe(UserObserver::class) - в Laravel 10 и старше это делалось в EventServiceProvider::boot(); в Laravel 11 EventServiceProvider удалён из дефолтного скелета, поэтому регистрация перенесена в AppServiceProvider::boot() (или в любой другой service provider). При желании EventServiceProvider можно вернуть и зарегистрировать в bootstrap/providers.php.',
                 'code_example' => '#[ObservedBy(UserObserver::class)]
 class User extends Model {}
 
@@ -191,15 +191,37 @@ $post->updateQuietly([\'views\' => $post->views + 1]);',
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Что такое chunk, lazy и cursor в Eloquent? В чём разница?',
-                'answer' => 'chunk - выбирает по N записей и отдаёт коллекцию в callback. lazy - возвращает LazyCollection, выбирая записи порциями (внутри также chunked). cursor - использует SQL-курсор и держит ОДНУ запись в памяти, экономит память сильнее всего, но открывает долгое соединение. Все три - для обработки больших таблиц без OOM.',
-                'code_example' => 'User::chunk(1000, function ($users) {
-    foreach ($users as $u) { /* ... */ }
+                'question' => 'Что такое chunk, chunkById, lazy и cursor в Eloquent? В чём разница и где ловушка?',
+                'answer' => 'chunk - выбирает по N записей через LIMIT/OFFSET и отдаёт коллекцию в callback. lazy - возвращает LazyCollection, выбирая записи порциями (внутри тоже chunk). cursor - использует серверный SQL-курсор и держит ОДНУ запись в памяти, экономит память сильнее всего, но удерживает соединение и не работает с eager loading. ⚠️ КРИТИЧЕСКАЯ ЛОВУШКА chunk при UPDATE. Если внутри chunk() вы обновляете записи так, что они перестают подпадать под исходное where (например, where("processed", false) и в callback ставите processed=true), произойдёт сдвиг OFFSET и ПОЛОВИНА записей будет ПРОПУЩЕНА. Механика: первый запрос берёт строки 0-999, обновляет их → они уходят из выборки. Второй запрос с OFFSET 1000 теперь начинает с того, что было бы строкой 2000 в исходной выборке - 1000 записей просто пролетают. Для миграций данных и любых обновлений всегда используйте chunkById() (или lazyById()): он использует WHERE id > $lastId вместо нестабильного OFFSET, поэтому устойчив к изменению набора записей. Тот же риск есть в обратную сторону при INSERT в обрабатываемую таблицу. Lazy для просто чтения - ок; для UPDATE - lazyById.',
+                'code_example' => '<?php
+// ❌ Опасно: chunk + UPDATE условия фильтра - пропуски записей
+User::where("notified", false)->chunk(1000, function ($users) {
+    foreach ($users as $u) {
+        Mail::send(new Notify($u));
+        $u->update(["notified" => true]);
+    }
+});
+// первый chunk: 1000 строк, OFFSET=0 - обработали и пометили
+// записи "сдвинулись"; второй chunk OFFSET=1000 пропускает половину
+
+// ✅ Правильно: chunkById использует WHERE id > $lastId
+User::where("notified", false)->chunkById(1000, function ($users) {
+    foreach ($users as $u) {
+        Mail::send(new Notify($u));
+        $u->update(["notified" => true]);
+    }
 });
 
-User::lazy()->each(function ($u) { /* ... */ });
+// ✅ Lazy-вариант для UPDATE
+User::where("notified", false)->lazyById()->each(function ($u) {
+    /* ... */
+});
 
-foreach (User::cursor() as $user) { /* ... */ }',
+// chunk - для read-only прохода по диапазону, который не меняется
+Order::where("created_at", "<", $cutoff)->chunk(500, fn ($orders) => /* ... */);
+
+// cursor - минимум памяти, без eager loading, с открытым курсором
+foreach (User::where("active", true)->cursor() as $user) { /* ... */ }',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_advanced',
@@ -414,7 +436,7 @@ $fresh = User::on("mysql")->useWritePdo()->find($user->id);',
             [
                 'category' => 'Laravel',
                 'question' => 'Как использовать PHP 8.1 Backed Enums в роутах, $casts моделей и валидации?',
-                'answer' => 'Laravel 9+ поддерживает PHP 8.1 backed enums (string или int) в трёх ключевых местах. 1) В роутах через Implicit Enum Binding: если параметр в сигнатуре контроллера затайпхинчен enum-классом, Laravel автоматически попытается создать экземпляр через Enum::tryFrom($urlValue); если значение не соответствует ни одному case - ОФИЦИАЛЬНО возвращается 404 без необходимости вручную проверять. 2) В модели в массиве $casts: "status" => UserStatus::class - при чтении атрибута получаете объект Enum, при сохранении в БД уходит ->value (строка/int); работает и с однозначными, и с массивами enums (AsEnumCollection). 3) В валидации через Rule::enum(UserStatus::class) - проверяет, что значение есть в case-ах. Также есть has() / In::enum() для расширенных кейсов. Бонус: в Blade и Resource классе можно сравнивать через ===, потому что enum - это singleton по case, а не строка. Подводный камень: чистый enum (без ": string"/": int") НЕ поддерживается ни в роутах, ни в $casts - нужен именно backed enum, потому что нужно соответствие БД-значению.',
+                'answer' => 'Laravel 9+ поддерживает PHP 8.1 backed enums (string или int) в трёх ключевых местах. 1) В роутах через Implicit Enum Binding: если параметр в сигнатуре контроллера затайпхинчен enum-классом, Laravel автоматически попытается создать экземпляр через Enum::tryFrom($urlValue); если значение не соответствует ни одному case - бросается BackedEnumCaseNotFoundException, который Laravel-овский ExceptionHandler по умолчанию рендерит как 404 (NotFoundHttpException). Чтобы кастомизировать (например, отдать 422 с описанием доступных значений), перехватите исключение в bootstrap/app.php через ->withExceptions(fn ($e) => $e->render(...)); метод ->missing() на роуте, который работает для Route Model Binding, для Enum НЕ применим. 2) В модели в массиве $casts: "status" => UserStatus::class - при чтении атрибута получаете объект Enum, при сохранении в БД уходит ->value (строка/int); работает и с однозначными, и с массивами enums (AsEnumCollection). 3) В валидации через Rule::enum(UserStatus::class) - проверяет, что значение есть в case-ах. Также есть has() / In::enum() для расширенных кейсов. Бонус: в Blade и Resource классе можно сравнивать через ===, потому что enum - это singleton по case, а не строка. Подводный камень: чистый enum (без ": string"/": int") НЕ поддерживается ни в роутах, ни в $casts - нужен именно backed enum, потому что нужно соответствие БД-значению.',
                 'code_example' => '<?php
 // 1) Enum
 enum UserStatus: string {
@@ -446,7 +468,57 @@ $request->validate([
 // 5) Коллекция enums (Laravel 11+)
 protected $casts = [
     "permissions" => AsEnumCollection::class . ":" . Permission::class,
-];',
+];
+
+// 6) Кастомизация ответа на невалидное значение в роуте (Laravel 11+)
+// bootstrap/app.php
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->render(function (BackedEnumCaseNotFoundException $e, Request $r) {
+        if ($r->expectsJson()) {
+            return response()->json([
+                "error" => "invalid_value",
+                "message" => $e->getMessage(),
+            ], 422);
+        }
+    });
+})',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как вытащить одно поле из связанной модели одним запросом без with()? (Subquery select)',
+                'answer' => 'Классическая задача: показать список пользователей с датой их последнего логина. with("logins") тащит ВСЕ логины каждого юзера - нерационально, нужен только один. withCount() считает только количество. withMax/Min/Avg/Sum - считают агрегат, но не возвращают другие поля связанной строки. Решение - subquery select через addSelect() (Laravel 6+). Пишете SELECT со скалярным подзапросом: SELECT users.*, (SELECT created_at FROM logins WHERE user_id = users.id ORDER BY created_at DESC LIMIT 1) AS last_login_at FROM users. Один запрос, никакого N+1, можно ORDER BY этого виртуального поля. Преимущества: 1) Только нужные данные. 2) Ноль дополнительных запросов. 3) Можно сортировать и фильтровать по subselect-полю на стороне БД. Подводные камни: тип значения - сырая строка из БД (для дат - timestamp-строка, не Carbon). Чтобы получить нормальный тип, добавьте в модель $casts (или addSelect + ->withCasts(["last_login_at" => "datetime"]) на лету в Laravel 8+). Если subselect возвращает несколько колонок - не подойдёт; нужно либо несколько отдельных subselect-ов, либо JOIN c GROUP BY. Альтернативный синтаксис в L9+: HasOne::ofMany("created_at", "max") - "latest of many" relation, который превращает hasMany в hasOne по агрегату.',
+                'code_example' => '<?php
+// Подзапрос: дата последнего логина
+$users = User::query()
+    ->addSelect([
+        "last_login_at" => Login::query()
+            ->select("created_at")
+            ->whereColumn("user_id", "users.id")
+            ->latest("created_at")
+            ->limit(1),
+    ])
+    ->withCasts(["last_login_at" => "datetime"]) // Carbon на выходе
+    ->orderByDesc("last_login_at")
+    ->paginate(20);
+
+// Или через addSelect для нескольких полей
+User::addSelect([
+    "last_login_at"   => Login::select("created_at")->whereColumn("user_id", "users.id")->latest()->limit(1),
+    "last_login_ip"   => Login::select("ip")->whereColumn("user_id", "users.id")->latest()->limit(1),
+    "orders_total"    => Order::selectRaw("COALESCE(SUM(amount), 0)")->whereColumn("user_id", "users.id"),
+])->get();
+
+// Альтернатива (L9+): hasOne ofMany - объявить связь "одна-к-многим, последняя"
+class User extends Model {
+    public function lastLogin(): HasOne {
+        return $this->hasOne(Login::class)->latestOfMany();
+        // или ->ofMany("score", "max") для произвольного агрегата
+    }
+}
+User::with("lastLogin")->get();',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_advanced',

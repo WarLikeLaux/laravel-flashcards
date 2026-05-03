@@ -40,8 +40,9 @@ class Distributed
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое distributed lock и зачем нужен?',
-                'answer' => 'Distributed lock - блокировка, работающая между несколькими процессами/серверами. Простыми словами: если на одном сервере достаточно mutex, то когда воркеров на разных машинах - им нужен общий "ключ" в Redis или Zookeeper. Зачем: чтобы только один воркер обрабатывал джобу, чтобы только один cron запустился. Реализации: Redis SET NX EX, Redlock, Zookeeper. Минусы: TTL может истечь до завершения работы - нужен fencing token.',
+                'answer' => 'Distributed lock - блокировка, работающая между несколькими процессами/серверами. Если на одном сервере достаточно mutex, то когда воркеров на разных машинах - им нужен общий "ключ" в Redis или Zookeeper. Зачем: чтобы только один воркер обрабатывал джобу, чтобы только один cron запустился. Реализации: Redis SET NX EX (один узел), Redlock (несколько Redis-узлов), Zookeeper / etcd (через ephemeral nodes / leases). КЛЮЧЕВАЯ ПРОБЛЕМА: TTL лока может истечь, пока воркер работает (например, его GC pause / IO stall на 30 секунд) - тогда второй воркер возьмёт лок параллельно с первым, и оба будут писать в общее хранилище. Решение - fencing token. Это монотонный счётчик, который выдаётся вместе с локом: воркер_А получил token=42, воркер_Б после переотбора - token=43. КАК РАБОТАЕТ ТОКЕН (важно!): сам по себе номер бесполезен, его должно проверять ЦЕЛЕВОЕ хранилище. БД/API при записи проверяет: "последний принятый токен был 43, а сейчас приходит 42 - отвергаю". Без поддержки на стороне storage fencing-токен НЕ защищает от race-condition - просто наблюдается. Поэтому для критичных операций нужно либо хранилище, умеющее conditional update (DynamoDB ConditionExpression, etcd compare-and-swap, Postgres SELECT FOR UPDATE с WHERE token > stored_token), либо использовать оптимистическую блокировку через версионирование (которое по сути тот же fencing). В Laravel Cache::lock реализует только первую часть (взять/не взять), без fencing - для критичных сценариев нужно строить поверх либо использовать БД с version/updated_at.',
                 'code_example' => '<?php
+// Базовый локсинг (Laravel Cache lock)
 $lock = Cache::lock("import-orders", 60);
 if ($lock->get()) {
     try {
@@ -49,7 +50,36 @@ if ($lock->get()) {
     } finally {
         $lock->release();
     }
-}',
+}
+
+// ⚠️ Уязвимая схема - без fencing token
+// Воркер_А: lock acquired, GC pause на 90s
+// (TTL=60s истёк - lock освобождён автоматически)
+// Воркер_Б: lock acquired, обновляет БД
+// Воркер_А: проснулся, тоже пишет в БД - race!
+
+// ✅ С fencing token (хранилище проверяет монотонность)
+$token = LockManager::acquire("orders-import"); // вернёт 42
+processOrders();
+DB::transaction(function () use ($token) {
+    // условный update только если текущий токен <= нашего
+    $rows = DB::update("
+        UPDATE orders_import_state
+           SET last_processed_id = ?, fencing_token = ?
+         WHERE fencing_token <= ?
+    ", [$lastId, $token, $token]);
+
+    if ($rows === 0) {
+        throw new StaleLockException; // пришёл воркер с большим токеном - откатываемся
+    }
+});
+
+// Альтернатива: оптимистическая блокировка через version
+$user = User::find($id);
+$updated = User::where("id", $id)
+    ->where("version", $user->version)
+    ->update(["balance" => $user->balance - 100, "version" => DB::raw("version + 1")]);
+if (! $updated) throw new ConcurrentModificationException;',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'system_design.distributed',

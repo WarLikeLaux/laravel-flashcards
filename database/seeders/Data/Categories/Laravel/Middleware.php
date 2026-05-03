@@ -64,7 +64,7 @@ Route::middleware([\'auth\', \'verified\', \'subscribed\'])->group(function () {
             [
                 'category' => 'Laravel',
                 'question' => 'Как реализовать rate limiting в Laravel?',
-                'answer' => 'Через middleware throttle. Можно по умолчанию (60 запросов в минуту), кастомный лимит, по группам. Сложные правила задаются через RateLimiter::for() в RouteServiceProvider/AppServiceProvider.',
+                'answer' => 'Через middleware throttle. Можно по умолчанию (60 запросов в минуту), кастомный лимит, по группам. Сложные правила задаются через RateLimiter::for() в провайдере. ВАЖНО про Laravel 11: в нём RouteServiceProvider удалён из дефолтного скелета - регистрация лимитеров перенесена в AppServiceProvider::boot() (или в bootstrap/app.php через withRouting). В Laravel 10 и старше лимитеры жили в RouteServiceProvider::configureRateLimiting(). Если вы апгрейдитесь, эти регистрации нужно переехать самостоятельно. Также в Laravel 11+ доступен perSecond() (раньше был только perMinute/perHour/perDay).',
                 'code_example' => 'Route::middleware(\'throttle:60,1\')->group(...);
 
 // Кастомный

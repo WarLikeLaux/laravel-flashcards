@@ -94,6 +94,49 @@ BASH,
                 'difficulty' => 3,
                 'topic' => 'database.nosql',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как считать уникальные посетители (DAU/MAU) на десятках миллионов записей RAM-эффективно? HyperLogLog и Bloom Filter',
+                'answer' => 'Точные структуры (Redis SET, COUNT(DISTINCT) в БД) на больших объёмах уникумов взрывают RAM: миллион уникальных IP в SET - это 50+ МБ; миллиард - 50 ГБ. Решение - вероятностные структуры данных, дающие приблизительный ответ за фиксированную память. HYPERLOGLOG (HLL) - алгоритм для cardinality estimation. В Redis команды PFADD (добавить), PFCOUNT (число уникальных), PFMERGE (объединить). Под капотом: элемент хешируется, биты хеша выбирают один из ~16k bucket-ов; в bucket пишется максимальное число лидирующих нулей в хеше. Кардинальность оценивается через гармоническое среднее (формула Flajolet-Martin). Свойства: фиксированный размер ~12 КБ независимо от объёма (миллиард уникумов - те же 12 КБ), стандартное отклонение ~0.81%, можно мерджить (HLL за неделю = merge 7 дневных). Идеально для DAU/MAU/уникальных IP/search queries за период. BLOOM FILTER - вероятностная структура для membership testing "элемент возможно есть" / "элемента ТОЧНО нет". K хеш-функций кладут биты в bitmap. False positives возможны (с настраиваемой вероятностью), false negatives - НИКОГДА. Применение: 1) Защита от cache penetration - перед БД проверяем "есть ли вообще такой ключ"; если Bloom говорит "нет" - не идём в БД (актуально для атак "cache miss storm"). 2) "Видел ли пользователь эту статью" - ленты соцсетей. 3) В Cassandra/HBase каждый SSTable имеет Bloom для пропуска при чтении. В Redis есть RedisBloom модуль с BF.ADD / BF.EXISTS. COUNT-MIN SKETCH - похожая структура для частот (top-K). Когда что: HLL - "сколько уникальных", Bloom - "был ли этот", CMS - "сколько раз встречался". Минусы: нельзя перечислить элементы; нельзя удалять из обычного Bloom (нужен Counting Bloom).',
+                'code_example' => '# HyperLogLog в Redis - DAU
+PFADD daily:2026-05-03 user_id_42
+PFADD daily:2026-05-03 user_id_99
+PFADD daily:2026-05-03 user_id_42  # дубль игнорируется
+PFCOUNT daily:2026-05-03           # 2 (приблизительно)
+
+# Память: ~12 КБ независимо от количества уникумов
+MEMORY USAGE daily:2026-05-03      # ~12 KB
+
+# Объединение - MAU из дневных HLL
+PFMERGE monthly:2026-05 daily:2026-05-01 daily:2026-05-02
+PFCOUNT monthly:2026-05            # уникальных за месяц
+
+# Bloom Filter (Redis с RedisBloom модулем)
+BF.RESERVE seen_articles 0.001 1000000   # error rate 0.1%, capacity 1M
+BF.ADD seen_articles article:42
+BF.EXISTS seen_articles article:42        # 1 (вероятно есть)
+BF.EXISTS seen_articles article:9999      # 0 (точно нет)
+
+# Защита от cache penetration в псевдокоде
+# if not bloom.exists(f"user:{id}"):
+#     return None              # точно нет в БД, не ходим в Postgres
+# if data := redis.get(f"user:{id}"):
+#     return data
+# data = db.fetch(id)
+# if data:
+#     bloom.add(f"user:{id}")
+#     redis.setex(f"user:{id}", 300, data)
+
+# Postgres extension postgresql-hll
+# CREATE EXTENSION hll;
+# CREATE TABLE daily_uniques (day DATE PRIMARY KEY, users hll);
+# UPDATE daily_uniques SET users = users || hll_hash_text(\'user_42\')
+#   WHERE day = CURRENT_DATE;
+# SELECT day, hll_cardinality(users) FROM daily_uniques;',
+                'code_language' => 'bash',
+                'difficulty' => 4,
+                'topic' => 'database.nosql',
+            ],
         ];
     }
 }

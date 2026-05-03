@@ -130,6 +130,57 @@ Route::bind(\'post\', fn($value) =>
                 'difficulty' => 3,
                 'topic' => 'laravel.routing',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Signed URLs в Laravel и как они защищены от подделки?',
+                'answer' => 'Signed URLs - механизм Laravel для генерации URL с криптографической подписью, защищающей от подделки параметров. URL::signedRoute("unsubscribe", ["user" => 42]) создаёт ссылку вида /unsubscribe/42?signature=abc123. Под подписью - HMAC-SHA256 от полной канонизированной строки URL (хост + путь + параметры в отсортированном виде), посчитанный с APP_KEY как секретом. Если злоумышленник попробует подменить хоть один параметр (например, user=42 → user=43), HMAC не сойдётся, и middleware ValidateSignature вернёт 403. Дополнительно есть signedRoute с ->expiresAt() / temporarySignedRoute($name, $expiration, $params) - в подпись включается параметр expires (timestamp), и если он в прошлом, ссылка считается невалидной (даже с правильной подписью). Применение: одноразовые ссылки на скачивание файлов, email-подтверждения регистрации, отписка от рассылки одним кликом, password reset (но Laravel для reset использует свой токен в БД, не signed urls), magic-link auth. Защита от replay - не из коробки: signed url можно использовать многократно до истечения; если нужна разовость, добавляйте в подпись nonce и сохраняйте использованные nonce-ы в Redis с TTL. URL должен совпадать дословно - иначе подпись не сойдётся; если за прокси работает rewriting (X-Forwarded-Host, X-Forwarded-Proto), нужны TrustProxies middleware и совпадающий APP_URL, иначе подпись посчитается от другого хоста. В контроллере проверка: ->middleware("signed") в роуте, или $request->hasValidSignature() вручную.',
+                'code_example' => '<?php
+use Illuminate\\Support\\Facades\\URL;
+
+// Генерация подписанного URL без срока истечения
+$url = URL::signedRoute("unsubscribe", ["user" => $user->id]);
+// https://app.test/unsubscribe/42?signature=eyJ...
+
+// С истечением (1 час)
+$url = URL::temporarySignedRoute(
+    "download",
+    now()->addHour(),
+    ["file" => $file->id],
+);
+
+// Регистрация роута с проверкой подписи
+Route::get("/unsubscribe/{user}", UnsubscribeController::class)
+    ->name("unsubscribe")
+    ->middleware("signed"); // 403 при невалидной/просроченной подписи
+
+// Ручная проверка
+public function unsubscribe(Request $request, User $user): Response
+{
+    if (! $request->hasValidSignature()) {
+        abort(403);
+    }
+    $user->unsubscribe();
+    return view("unsubscribed");
+}
+
+// Игнорировать конкретные параметры (полезно при utm-метках)
+Route::get("/...", ...)->middleware("signed:relative")
+    // или: $request->hasValidSignatureWhileIgnoring(["utm_source", "utm_medium"])
+
+// В Mail/Notification
+class WelcomeNotification extends Notification {
+    public function toMail($notifiable) {
+        return (new MailMessage)
+            ->action(
+                "Подтвердить",
+                URL::temporarySignedRoute("verify", now()->addHour(), ["user" => $notifiable->id])
+            );
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.routing',
+            ],
         ];
     }
 }

@@ -147,6 +147,45 @@ echo memory_get_peak_usage(true) / 1024 / 1024; // ~6 MB',
                 'difficulty' => 4,
                 'topic' => 'php.generators',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что делает Generator::throw() и для чего он применяется?',
+                'answer' => 'Метод $generator->throw(Throwable $e) внедряет исключение ВНУТРЬ генератора в точке, где он сейчас приостановлен (последний yield). С точки зрения кода генератора это выглядит так, как будто исключение было выброшено прямо в строчке yield - его можно поймать через try/catch вокруг yield, а если не поймать - оно вылетит наружу из throw() обратно в вызывающий код. Это парный механизм к send($value) (который как бы "возвращает" значение из yield) и используется в построении async-runtimes: event loop вызывает throw() в корутину, чтобы сообщить ей о неуспехе IO-операции (TimeoutException, ConnectionResetException). Корутина может обработать ошибку через try/catch вокруг yield и продолжить работу - например, попробовать другой URL, сделать fallback. В обычном коде применяется редко; основные пользователи - amphp/promise, ReactPHP, любые библиотеки коопертивной многозадачности на yield-based корутинах. Без throw() невозможно было бы пробросить ошибку IO в код, который её ожидает.',
+                'code_example' => '<?php
+function fetchOrFallback(): Generator
+{
+    try {
+        $body = yield $primaryFetch;     // ждём результата
+    } catch (TimeoutException $e) {
+        // throw() из event loop материализуется здесь
+        $body = yield $fallbackFetch;
+    }
+    return strlen($body);
+}
+
+$gen = fetchOrFallback();
+$gen->current();             // запускаем до первого yield (отдаёт $primaryFetch)
+
+// Симулируем неудачу таймаута: event loop сообщает корутине
+$gen->throw(new TimeoutException("primary timed out"));
+// внутри генератора это выглядит как throw в строчке yield;
+// catch (TimeoutException) ловит, и yield $fallbackFetch отдаётся наружу
+
+$gen->send($responseBody);   // event loop отдаёт удачный fallback-результат
+echo $gen->getReturn();      // длина
+
+// Если throw не поймать - вылетит наружу
+$gen2 = simpleCoroutine();
+$gen2->current();
+try {
+    $gen2->throw(new RuntimeException("oops"));
+} catch (RuntimeException $e) {
+    echo "пробросилось обратно";
+}',
+                'code_language' => 'php',
+                'difficulty' => 5,
+                'topic' => 'php.generators',
+            ],
         ];
     }
 }

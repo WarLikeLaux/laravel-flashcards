@@ -10,7 +10,7 @@ class Closures
             [
                 'category' => 'PHP',
                 'question' => 'Что такое замыкание (closure) в PHP?',
-                'answer' => 'Замыкание - это анонимная функция, которая может "захватывать" переменные из окружения. В PHP в отличие от JS захват ЯВНЫЙ через use. По умолчанию переменные захватываются по значению (копия), для захвата по ссылке - use (&$var). $this автоматически биндится если closure создан в методе. Можно перепривязать через bindTo/Closure::bind или Closure::fromCallable.',
+                'answer' => 'Замыкание - это анонимная функция, которая может "захватывать" переменные из окружения. В PHP в отличие от JS захват ЯВНЫЙ через use. По умолчанию переменные захватываются по значению (копия), для захвата по ссылке - use (&$var). $this автоматически биндится если closure создан в методе. Перепривязать $this можно через ->bindTo($newThis, $scope) или статический Closure::bind($closure, $newThis, $scope). ВАЖНО: Closure::fromCallable($callable) - это про ДРУГОЕ: конвертирует любой callable (строка-имя функции, [$obj, "method"], [Class::class, "static"]) в объект Closure, никакой $this не привязывает. С PHP 8.1 для этого есть first-class callable syntax: $fn = strlen(...); $m = $obj->method(...).',
                 'code_example' => '<?php
 $multiplier = 3;
 

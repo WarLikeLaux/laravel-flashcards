@@ -204,6 +204,64 @@ class OrderService
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.solid',
+                'difficulty' => 4,
+                'question' => 'Как LSP ограничивает выброс исключений в наследниках?',
+                'answer' => 'Часть LSP-контракта - не только сигнатуры и инварианты, но и поведение в отказных ситуациях: какие типы исключений может выбросить метод. Правило: наследник имеет право бросать только те типы исключений, которые задекларированы в контракте родителя (в PHP это @throws PHPDoc, поскольку checked exceptions как в Java нет), либо ИХ ПОДКЛАССЫ. Бросать что-то новое и неожиданное - нарушение LSP: клиентский код, написанный против абстракции, не имеет catch-блоков для таких исключений и упадёт. Канонический пример нарушения. В UserRepository::find заявлено @throws UserNotFoundException. Конкретная реализация DbUserRepository ловит ошибки PDO и пробрасывает их голым PDOException. Клиентский код try { $repo->find(1) } catch (UserNotFoundException) { ... } не подготовлен к PDOException - вылетит выше, в худшем случае - в production с 500. Правильно: ловить PDOException внутри и оборачивать в UserNotFoundException (или RepositoryException, если такой задекларирован). Связанная практика: создавать иерархию исключений конкретного домена (UserNotFoundException extends NotFoundException extends DomainException) и в @throws указывать корень - тогда клиент может ловить родителя и поймает любых наследников. Тот же принцип в обратную сторону: наследник может бросать ПОДКЛАССЫ задекларированных исключений (это сужение, не расширение - LSP-совместимо), но не новые корни иерархии.',
+                'code_example' => '<?php
+abstract class UserRepository
+{
+    /** @throws UserNotFoundException */
+    abstract public function find(int $id): User;
+}
+
+// ❌ Нарушение LSP - бросает то, чего клиент не ждёт
+class DbUserRepoBad extends UserRepository
+{
+    public function find(int $id): User
+    {
+        $row = $this->pdo->query("SELECT ...")->fetch(); // бросит PDOException!
+        if (! $row) throw new UserNotFoundException;
+        return new User($row);
+    }
+}
+
+try {
+    $repo->find(1);
+} catch (UserNotFoundException) {
+    return null; // готов только к этому
+}
+// PDOException пробивается дальше - 500 в проде
+
+// ✅ Соблюдает LSP - оборачивает чужие исключения
+class DbUserRepoGood extends UserRepository
+{
+    public function find(int $id): User
+    {
+        try {
+            $row = $this->pdo->query("SELECT ...")->fetch();
+        } catch (PDOException $e) {
+            throw new UserNotFoundException("db error", previous: $e);
+        }
+        if (! $row) throw new UserNotFoundException;
+        return new User($row);
+    }
+}
+
+// ✅ Подкласс задекларированного - тоже LSP-совместимо
+class CachedUserRepo extends UserRepository
+{
+    public function find(int $id): User
+    {
+        // StaleCacheException extends UserNotFoundException - можно
+        if ($this->cacheStale($id)) throw new StaleCacheException;
+        // ...
+    }
+}',
+                'code_language' => 'php',
+            ],
         ];
     }
 }

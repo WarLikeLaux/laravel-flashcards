@@ -246,6 +246,47 @@ SELECT pg_stat_statements_reset();',
                 'difficulty' => 4,
                 'topic' => 'database.postgresql',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Почему в PgBouncer transaction pooling ломаются Prepared Statements в Laravel/PDO и как это починить?',
+                'answer' => 'PgBouncer - популярный пулер соединений для Postgres. Имеет три режима. Session pooling: одна клиентская сессия = одно физическое соединение на всё время до отключения клиента (поведение как без pooler). Transaction pooling (самый распространённый в проде): физическое соединение выдаётся клиенту только на ВРЕМЯ ОДНОЙ ТРАНЗАКЦИИ, после COMMIT/ROLLBACK возвращается в пул и может быть отдано другому клиенту. Statement pooling: ещё агрессивнее, на одну statement. ПРОБЛЕМА: Prepared Statements (PG-команды PREPARE name AS ... + EXECUTE name) - это server-side объект, привязанный к ФИЗИЧЕСКОМУ соединению. PDO в эмулирующем режиме делает PREPARE при первом вызове $stmt = $pdo->prepare() и кеширует имя; при последующих вызовах шлёт EXECUTE. В transaction pooling между PREPARE и EXECUTE PgBouncer может выдать соединение другому клиенту, и при возврате - на этом соединении уже не будет нашего PREPARE, выскочит "prepared statement does not exist". В Laravel это ловится как PDOException или QueryException в самых неожиданных местах под нагрузкой. Решения: 1) PDO::ATTR_EMULATE_PREPARES => true (в config/database.php в options) - PDO сам подставляет параметры в PHP, на сервер уходит уже готовая SQL-строка без PREPARE/EXECUTE. Минус: меньше защита от типов на стороне БД, но безопасность от инъекций сохраняется (PDO правильно экранирует). 2) В PgBouncer 1.21+ (выпущен в 2023) появился experimental support для protocol-level prepared statements - max_prepared_statements > 0 в pgbouncer.ini, тогда PgBouncer сам реплицирует PREPARE на каждое физ-соединение, на которое попадает клиент. Стабильно с 1.22+. 3) Использовать session pooling вместо transaction - но это убивает преимущество пула (меньше effective connections). 4) В Laravel - php artisan queue:work обычно использует transaction pooling и страдает от этого; решение - emulate prepares на queue connection. Симптомы: спорадические ошибки "prepared statement \\"pdo_stmt_00000123\\" does not exist" под нагрузкой, особенно когда несколько воркеров одновременно. Связанные подводные камни transaction pooling: нельзя использовать SET (настройки сессии теряются между транзакциями), LISTEN/NOTIFY не работает, advisory locks на уровне сессии тоже.',
+                'code_example' => '<?php
+// config/database.php
+\'pgsql\' => [
+    \'driver\' => \'pgsql\',
+    \'host\' => env(\'DB_HOST\', \'pgbouncer.internal\'),
+    \'port\' => env(\'DB_PORT\', 6432), // PgBouncer порт
+    // ...
+    \'options\' => [
+        // КРИТИЧНО при transaction pooling без max_prepared_statements
+        PDO::ATTR_EMULATE_PREPARES => true,
+    ],
+],
+
+// Альтернатива - PgBouncer 1.22+ с поддержкой prepared statements
+// /etc/pgbouncer/pgbouncer.ini:
+// pool_mode = transaction
+// max_prepared_statements = 100  ; 0 по умолчанию = выключено
+// после этого PDO::ATTR_EMULATE_PREPARES можно НЕ ставить
+
+// Симптом проблемы в логах:
+// SQLSTATE[26000]: Invalid sql statement name:
+// 7 ERROR: prepared statement "pdo_stmt_00000abc" does not exist
+
+// Проверка какой режим pooling у вашего PgBouncer
+// $ psql -h pgbouncer -p 6432 -U user pgbouncer
+// SHOW POOLS;
+// SHOW CONFIG; // pool_mode = transaction|session|statement
+
+// Прочие подводные камни transaction pooling
+DB::statement("SET search_path TO custom_schema"); // НЕ сохраняется
+DB::listen(...); // LISTEN/NOTIFY не работает между транзакциями
+DB::raw("SELECT pg_advisory_lock(?)"); // session-level lock протекает на чужого клиента!
+// Используйте pg_advisory_xact_lock - живёт только до конца транзакции',
+                'code_language' => 'php',
+                'difficulty' => 5,
+                'topic' => 'database.postgresql',
+            ],
         ];
     }
 }

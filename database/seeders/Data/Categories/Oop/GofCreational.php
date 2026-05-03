@@ -12,22 +12,43 @@ class GofCreational
                 'topic' => 'oop.gof_creational',
                 'difficulty' => 3,
                 'question' => 'Паттерн Singleton',
-                'answer' => 'Singleton (одиночка) гарантирует, что у класса есть только один экземпляр, и предоставляет глобальную точку доступа к нему. Подводные камни: 1) Глобальное состояние - усложняет тестирование, рождает скрытые зависимости. 2) Нарушает SRP (класс отвечает и за свою логику, и за свой жизненный цикл). 3) Сложно подменить мок в тестах. 4) Проблемы с многопоточностью (в PHP не критично, но в других языках). 5) Считается анти-паттерном; в современных приложениях вместо Singleton используют DI-контейнер с одним экземпляром (scope=singleton).',
+                'answer' => 'Singleton (одиночка) гарантирует, что у класса есть только один экземпляр, и предоставляет глобальную точку доступа к нему. Подводные камни: 1) Глобальное состояние - усложняет тестирование, рождает скрытые зависимости. 2) Нарушает SRP (класс отвечает и за свою логику, и за свой жизненный цикл). 3) Сложно подменить мок в тестах. 4) Проблемы с многопоточностью (в PHP не критично, но в других языках). 5) Считается анти-паттерном; в современных приложениях вместо Singleton используют DI-контейнер с одним экземпляром (scope=singleton). PHP-специфика: чтобы по-настоящему "запечатать" синглтон, недостаточно закрыть __construct и __clone - нужно ещё заблокировать __wakeup() и __unserialize(). Иначе через unserialize("O:9:\\"Config\\":0:{}") можно создать второй экземпляр в обход конструктора (PHP реально позволяет это сделать, get_class вернёт Config, а === с оригиналом - false). Также стоит финализировать класс (final) от наследования, которое могло бы переоткрыть видимость.',
                 'code_example' => '<?php
+// "Глухой" singleton, защищённый от всех способов создания второго экземпляра
 final class Config
 {
     private static ?self $instance = null;
     private array $data;
 
     private function __construct() { $this->data = []; }
-    private function __clone() {}
 
     public static function getInstance(): self
     {
         return self::$instance ??= new self();
     }
+
+    // 1. Запретить клонирование
+    private function __clone() {}
+
+    // 2. Запретить десериализацию (старый магический метод)
+    public function __wakeup(): void
+    {
+        throw new \\LogicException("Cannot unserialize singleton");
+    }
+
+    // 3. Запретить новый формат десериализации (PHP 7.4+)
+    public function __unserialize(array $data): void
+    {
+        throw new \\LogicException("Cannot unserialize singleton");
+    }
 }
 
+// Без __wakeup это работает - получаем ВТОРОЙ экземпляр:
+// $a = Config::getInstance();
+// $b = unserialize("O:6:\\"Config\\":0:{}");
+// var_dump($a === $b); // false - singleton сломан
+
+// С защитой - бросает исключение:
 $c1 = Config::getInstance();
 $c2 = Config::getInstance();
 var_dump($c1 === $c2); // true',

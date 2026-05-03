@@ -99,6 +99,49 @@ PHP,
                 'difficulty' => 3,
                 'topic' => 'database.optimization',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Почему SELECT COUNT(*) без WHERE работает медленно в InnoDB и PostgreSQL, хотя в старом MyISAM был мгновенным?',
+                'answer' => 'Точная цифра в MyISAM хранилась прямо в метаданных таблицы - SELECT COUNT(*) без WHERE возвращал её за O(1). InnoDB и PostgreSQL так не могут из-за MVCC (Multi-Version Concurrency Control). Когда в БД одновременно работают несколько транзакций с разными snapshot-ами, "точное количество строк" - не одна цифра, а N разных цифр для N снапшотов: транзакция T1, начавшаяся в момент A, видит одни строки; T2, начавшаяся позже - другие (часть удалённых стала "не видна", часть добавленных - "не видна"). Для каждой транзакции БД должна пройти и проверить visibility (видимость) каждой строки относительно её snapshot-а - это full scan по таблице или по индексу. В InnoDB с PK можно сделать count по самому компактному индексу (не по таблице), но всё равно линейный проход. В PostgreSQL ещё хуже: heap-страницы могут содержать "мёртвые" строки (удалённые, но не очищенные VACUUM); visibility map иногда позволяет ускорить через index-only scan, но при свежих изменениях map неактуален. Способы ускорения: 1) SELECT reltuples FROM pg_class WHERE relname="t" - приблизительная оценка (обновляется ANALYZE/VACUUM, может отставать). 2) Своя счётная таблица + триггеры на INSERT/DELETE. 3) Для UI-пагинации - simplePaginate / cursor-пагинация без COUNT вообще. 4) Кеш с TTL: если погрешность приемлема. 5) В Postgres 16+ EXPLAIN с estimate - часто достаточно. Когда COUNT(*) ОК: с селективным WHERE по индексу, на маленьких таблицах. Анти-паттерн: показывать "Найдено 12 345 678 записей" в админке на 100M-таблице - полный скан на каждый клик.',
+                'code_example' => '-- ❌ Медленно на больших таблицах
+SELECT COUNT(*) FROM events; -- full scan / index scan, O(N)
+
+-- ✅ Быстрая приблизительная оценка в Postgres
+SELECT reltuples::bigint AS approx_count
+FROM pg_class WHERE relname = \'events\';
+-- ~99% точность после свежего ANALYZE, мгновенно
+
+-- ✅ Точная цифра без COUNT(*) - своя счётная таблица
+CREATE TABLE table_counts (table_name TEXT PRIMARY KEY, n BIGINT NOT NULL);
+
+CREATE OR REPLACE FUNCTION events_count_trigger()
+RETURNS TRIGGER LANGUAGE plpgsql AS $body$
+BEGIN
+    IF TG_OP = \'INSERT\' THEN
+        UPDATE table_counts SET n = n + 1 WHERE table_name = \'events\';
+    ELSIF TG_OP = \'DELETE\' THEN
+        UPDATE table_counts SET n = n - 1 WHERE table_name = \'events\';
+    END IF;
+    RETURN NULL;
+END $body$;
+
+CREATE TRIGGER events_count_trg
+    AFTER INSERT OR DELETE ON events
+    FOR EACH ROW EXECUTE FUNCTION events_count_trigger();
+
+-- ✅ COUNT(*) с селективным WHERE - быстро
+SELECT COUNT(*) FROM events WHERE user_id = 42; -- индекс по user_id
+
+-- ❌ Анти-паттерн в API
+-- { "page": 1, "data": [...], "total": 12345678 }
+--                                ^ COUNT(*) на каждый запрос
+
+-- ✅ Cursor pagination без COUNT
+-- { "data": [...], "next_cursor": "eyJpZCI6MTIzNDV9" }',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.optimization',
+            ],
         ];
     }
 }

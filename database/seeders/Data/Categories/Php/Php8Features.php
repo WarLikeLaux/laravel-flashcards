@@ -237,6 +237,119 @@ Log::info("expensive", ["ms" => $elapsedMs, "mem_mb" => memory_get_peak_usage(tr
                 'difficulty' => 4,
                 'topic' => 'php.php8_features',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что делает атрибут #[\\Override] (PHP 8.3) и зачем он нужен?',
+                'answer' => 'Атрибут #[\\Override] (PHP 8.3) ставится на метод и проверяет в момент компиляции, что этот метод действительно переопределяет метод родителя или реализует метод интерфейса/абстрактного класса. Если родитель удалит/переименует метод, или в дочернем классе будет опечатка - PHP сразу выбросит ошибку (Override of unknown method). Без атрибута опечатка тихо создаст НОВЫЙ метод, который никогда не вызовется через полиморфизм - классический баг рефакторинга, особенно при крупных миграциях между версиями фреймворка. Аналог @Override в Java, override в C#/Kotlin, override в TypeScript. Не имеет рантайм-стоимости (только compile-time проверка). Хорошая практика - добавлять на ВСЕ переопределяющие методы; PHPStan/Psalm и многие IDE умеют добавлять автоматически. Особенно полезен для методов с длинными именами и сложной сигнатурой (handle, process), где опечатка не очевидна.',
+                'code_example' => '<?php
+class Animal
+{
+    public function speak(): string { return "..."; }
+}
+
+class Dog extends Animal
+{
+    #[\\Override]
+    public function speak(): string { return "Гав"; } // OK
+
+    #[\\Override]
+    public function speack(): string { return "..."; }
+    // ⚠️ Compile error: Dog::speack() has #[\\Override] attribute,
+    // but no matching parent method exists
+}
+
+// Без атрибута опечатка тихо создаёт новый метод
+class DogBad extends Animal
+{
+    public function speack(): string { return "..."; } // новый метод!
+}
+$d = new DogBad();
+echo $d->speak();  // "..." из Animal - молча сломалось
+
+// Работает и с интерфейсами
+interface Repository { public function find(int $id): ?Model; }
+
+class UserRepo implements Repository
+{
+    #[\\Override]
+    public function find(int $id): ?User { return /* ... */; }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.php8_features',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Зачем нужна функция json_validate() (PHP 8.3)?',
+                'answer' => 'json_validate(string $json): bool - проверяет, что строка является валидным JSON, БЕЗ создания PHP-структуры в памяти. До PHP 8.3 единственный способ был json_decode + проверка json_last_error() (или json_decode($s, false, 512, JSON_THROW_ON_ERROR) с try/catch) - но это аллоцировало массив/объект под весь декодированный JSON. На больших payload-ах (мегабайты вебхуков, дампы) - бесполезный расход CPU и RAM, особенно в горячем пути или в долгоживущих воркерах. json_validate использует тот же парсер, что и json_decode, но останавливается, как только сделал проход - O(N) по времени, O(1) по памяти. Применение: rate-limiting роутов с большим JSON-телом, валидация webhook-ов перед очередью, фильтрация мусора на API gateway, проверка структуры до тяжёлой записи. Аргументы: $depth (макс. вложенность), $flags (поддерживаются JSON_THROW_ON_ERROR и JSON_INVALID_UTF8_IGNORE).',
+                'code_example' => '<?php
+$payload = file_get_contents("php://input");
+
+// ❌ До PHP 8.3 - аллоцируется вся структура
+json_decode($payload);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    return response("invalid json", 400);
+}
+// + дополнительный декод позже когда нужно реально использовать
+
+// ✅ PHP 8.3+ - O(1) памяти
+if (! json_validate($payload)) {
+    return response("invalid json", 400);
+}
+// затем декодируем, когда уверены и реально нужен результат
+$data = json_decode($payload, true);
+
+// С исключением
+try {
+    json_validate("invalid", flags: JSON_THROW_ON_ERROR);
+} catch (JsonException $e) {
+    Log::warning("bad json", ["err" => $e->getMessage()]);
+}
+
+// Бенчмарк: на 50 МБ JSON
+// json_decode + last_error: ~120 МБ peak memory
+// json_validate:            ~600 КБ peak memory',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.php8_features',
+            ],
+            [
+                'category' => 'PHP',
+                'question' => 'Какие новые функции для массивов появились в PHP 8.4?',
+                'answer' => 'PHP 8.4 добавил четыре функции, заполняющие давнюю дыру в стандартной библиотеке: array_find, array_find_key, array_any, array_all. Все принимают $array и $callback, возвращают разное: array_find($arr, $cb) - первое значение, для которого callback вернул truthy, иначе null. array_find_key($arr, $cb) - ключ первого совпадения, иначе null. array_any($arr, $cb) - true, если хотя бы один элемент удовлетворяет, иначе false (аналог some/anyMatch). array_all($arr, $cb) - true, если ВСЕ элементы удовлетворяют, иначе false (аналог every/allMatch). Главное преимущество - early termination: останавливаются на первом совпадении (или первом несовпадении для array_all), не проходят весь массив. До 8.4 для тех же задач писали array_filter() (но он проходит ВЕСЬ массив и аллоцирует промежуточный результат) или явный foreach с break. Эти функции - аналоги Array.find / .some / .every из JS, anyMatch / allMatch / findFirst из Java Streams.',
+                'code_example' => '<?php
+$users = [
+    ["name" => "Иван", "active" => false],
+    ["name" => "Аня",  "active" => true,  "admin" => true],
+    ["name" => "Петя", "active" => true],
+];
+
+// PHP 8.4
+$admin = array_find($users, fn($u) => $u["admin"] ?? false);
+// ["name"=>"Аня", "active"=>true, "admin"=>true] или null
+
+$adminIndex = array_find_key($users, fn($u) => $u["admin"] ?? false);
+// 1 или null
+
+$hasActive = array_any($users, fn($u) => $u["active"]);
+// true
+
+$allActive = array_all($users, fn($u) => $u["active"]);
+// false (Иван неактивен)
+
+// До PHP 8.4 - быстро, но многословно
+$admin = null;
+foreach ($users as $u) {
+    if ($u["admin"] ?? false) { $admin = $u; break; }
+}
+
+// Антипаттерн через array_filter - проходит весь массив
+$admin = array_filter($users, fn($u) => $u["admin"] ?? false);
+$admin = $admin ? reset($admin) : null;',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'php.php8_features',
+            ],
         ];
     }
 }
