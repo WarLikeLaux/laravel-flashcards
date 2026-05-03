@@ -18,7 +18,7 @@ class ReviewController extends Controller
         'id', 'category', 'topic', 'difficulty',
         'question', 'answer',
         'code_example', 'code_language',
-        'cloze_text', 'short_answer', 'assemble_chunks',
+        'cloze_text', 'short_answer', 'assemble_chunks', 'note',
         'is_learned', 'srs_step', 'next_review_at',
     ];
 
@@ -70,6 +70,17 @@ class ReviewController extends Controller
         ]);
 
         return redirect()->route('review.show');
+    }
+
+    public function skip(Flashcard $flashcard): RedirectResponse
+    {
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'skipped',
+            'occurred_at' => now(),
+        ]);
+
+        return redirect()->route('review.show', ['exclude' => $flashcard->id]);
     }
 
     public function reset(Request $request): RedirectResponse

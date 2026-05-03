@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
+    AlertTriangle,
     BarChart3,
     BookOpen,
     GraduationCap,
@@ -23,6 +24,7 @@ import learn from '@/routes/learn';
 import review from '@/routes/review';
 import stats from '@/routes/stats';
 import study from '@/routes/study';
+import troubled from '@/routes/troubled';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -50,6 +52,11 @@ const mainNavItems: NavItem[] = [
         title: 'Повторение',
         href: review.show().url,
         icon: Repeat,
+    },
+    {
+        title: 'Проблемные',
+        href: troubled.show().url,
+        icon: AlertTriangle,
     },
     {
         title: 'Статистика',

@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { Code2, PencilLine, Puzzle, Spline } from 'lucide-react';
+import { Code2, PencilLine, Puzzle, Spline, StickyNote } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +29,7 @@ type FormData = {
     cloze_text: string;
     short_answer: string;
     assemble_chunks_text: string;
+    note: string;
     [key: string]: string;
 };
 
@@ -50,6 +51,7 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
         cloze_text: initial?.cloze_text ?? '',
         short_answer: initial?.short_answer ?? '',
         assemble_chunks_text: initial?.assemble_chunks?.join('\n') ?? '',
+        note: initial?.note ?? '',
     });
 
     const submit = (e: FormEvent) => {
@@ -78,6 +80,7 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
                 cloze_text: data.cloze_text || null,
                 short_answer: data.short_answer || null,
                 assemble_chunks: chunks.length > 0 ? chunks : null,
+                note: data.note || null,
             };
         });
 
@@ -348,6 +351,28 @@ export function FlashcardForm({ initial, mode, submitLabel }: Props) {
                         Минимум 2 блока. Соседние блоки склеиваются подряд при
                         отображении.
                     </p>
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                icon={<StickyNote className="size-4 text-amber-500" />}
+                title="Личная заметка"
+                description="Мнемоника, ассоциация, ссылка — что угодно своё. Показывается в /learn и /review."
+            >
+                <div className="flex flex-col gap-2">
+                    <Label htmlFor="note">Заметка</Label>
+                    <Textarea
+                        id="note"
+                        value={form.data.note}
+                        onChange={(e) => form.setData('note', e.target.value)}
+                        rows={3}
+                        placeholder="Своими словами, ассоциация, ссылка…"
+                    />
+                    {form.errors.note && (
+                        <p className="text-sm text-destructive">
+                            {form.errors.note}
+                        </p>
+                    )}
                 </div>
             </SectionCard>
 

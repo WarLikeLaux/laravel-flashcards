@@ -2,6 +2,7 @@ import { Form, Head, Link, router } from '@inertiajs/react';
 import { ArrowRight, BookOpen, Check, GraduationCap, Plus } from 'lucide-react';
 import { CategoryBadge } from '@/components/category-badge';
 import { CodeBlock } from '@/components/code-block';
+import { NoteBlock } from '@/components/note-block';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -132,18 +133,7 @@ function LearnCard({
     filters: Filters;
 }) {
     const studiedAction = `${learn.studied(flashcard.id).url}`;
-    const filterParams = new URLSearchParams();
-
-    if (filters.category && filters.category !== 'all') {
-        filterParams.set('category', filters.category);
-    }
-
-    if (filters.topic) {
-        filterParams.set('topic', filters.topic);
-    }
-
-    const filterQuery = filterParams.toString();
-    const filterSuffix = filterQuery ? `&${filterQuery}` : '';
+    const skipAction = `${learn.skip(flashcard.id).url}`;
 
     return (
         <Card>
@@ -206,36 +196,31 @@ function LearnCard({
                         language={flashcard.code_language}
                     />
                 )}
+
+                <NoteBlock note={flashcard.note} />
             </CardContent>
             <CardFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <Link
-                        href={`${learn.show().url}?exclude=${flashcard.id}${filterSuffix}`}
-                        preserveScroll={false}
+                <Form
+                    action={skipAction}
+                    method="post"
+                    className="w-full sm:w-auto"
+                >
+                    <FilterInputs filters={filters} />
+                    <Button
+                        type="submit"
+                        variant="outline"
+                        className="w-full sm:w-auto"
                     >
                         Дальше
                         <ArrowRight />
-                    </Link>
-                </Button>
+                    </Button>
+                </Form>
                 <Form
                     action={studiedAction}
                     method="post"
                     className="w-full sm:w-auto"
                 >
-                    {filters.category && filters.category !== 'all' && (
-                        <input
-                            type="hidden"
-                            name="category"
-                            value={filters.category}
-                        />
-                    )}
-                    {filters.topic && (
-                        <input
-                            type="hidden"
-                            name="topic"
-                            value={filters.topic}
-                        />
-                    )}
+                    <FilterInputs filters={filters} />
                     <Button type="submit" className="w-full sm:w-auto">
                         <Check />
                         Изучил
@@ -243,6 +228,19 @@ function LearnCard({
                 </Form>
             </CardFooter>
         </Card>
+    );
+}
+
+function FilterInputs({ filters }: { filters: Filters }) {
+    return (
+        <>
+            {filters.category && filters.category !== 'all' && (
+                <input type="hidden" name="category" value={filters.category} />
+            )}
+            {filters.topic && (
+                <input type="hidden" name="topic" value={filters.topic} />
+            )}
+        </>
     );
 }
 

@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
 import { CodeBlock } from '@/components/code-block';
+import { NoteBlock } from '@/components/note-block';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -163,6 +164,7 @@ function ReviewCard({
                                 language={flashcard.code_language}
                             />
                         )}
+                        <NoteBlock note={flashcard.note} />
                     </>
                 ) : (
                     <Button
@@ -194,20 +196,20 @@ function ReviewCard({
                                 Забыл
                             </Button>
                         </Form>
-                        <Button
-                            asChild
-                            type="button"
-                            variant="outline"
+                        <Form
+                            action={review.skip(flashcard.id).url}
+                            method="post"
                             className="w-full sm:w-auto"
                         >
-                            <Link
-                                href={`${review.show().url}?exclude=${flashcard.id}`}
-                                preserveScroll={false}
+                            <Button
+                                type="submit"
+                                variant="outline"
+                                className="w-full sm:w-auto"
                             >
                                 <Repeat />
                                 Повторить
-                            </Link>
-                        </Button>
+                            </Button>
+                        </Form>
                         <Form
                             action={review.remember(flashcard.id).url}
                             method="post"

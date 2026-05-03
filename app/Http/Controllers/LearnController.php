@@ -16,7 +16,7 @@ class LearnController extends Controller
         'id', 'category', 'topic', 'difficulty',
         'question', 'answer',
         'code_example', 'code_language',
-        'cloze_text', 'short_answer', 'assemble_chunks',
+        'cloze_text', 'short_answer', 'assemble_chunks', 'note',
         'is_learned', 'studied',
     ];
 
@@ -49,13 +49,30 @@ class LearnController extends Controller
             'occurred_at' => now(),
         ]);
 
-        $params = array_filter([
+        return redirect()->route('learn.show', $this->forwardFilters($request, $flashcard));
+    }
+
+    public function skip(Request $request, Flashcard $flashcard): RedirectResponse
+    {
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'skipped',
+            'occurred_at' => now(),
+        ]);
+
+        return redirect()->route('learn.show', $this->forwardFilters($request, $flashcard));
+    }
+
+    /**
+     * @return array<string, string|int>
+     */
+    private function forwardFilters(Request $request, Flashcard $flashcard): array
+    {
+        return array_filter([
             'exclude' => $flashcard->id,
             'category' => $request->input('category'),
             'topic' => $request->input('topic'),
         ]);
-
-        return redirect()->route('learn.show', $params);
     }
 
     private function pickCard(?int $excludeId, string $category, string $topic): ?Flashcard

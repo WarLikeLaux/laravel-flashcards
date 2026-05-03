@@ -1,4 +1,4 @@
-import { Form, Link } from '@inertiajs/react';
+import { Form } from '@inertiajs/react';
 import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -16,19 +16,20 @@ export function VerdictActions({ flashcardId, mode, result }: Props) {
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <VerdictBanner result={result} />
             <div className="flex w-full gap-2 sm:w-auto">
-                <Button
-                    asChild
-                    variant="outline"
+                <Form
+                    action={study.skip(flashcardId).url}
+                    method="post"
                     className="flex-1 sm:flex-none"
-                    title="Не засчитывать ответ, перейти к следующей"
                 >
-                    <Link
-                        href={`${study.show().url}?exclude=${flashcardId}`}
-                        preserveScroll={false}
+                    <Button
+                        type="submit"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        title="Не засчитывать ответ, перейти к следующей"
                     >
                         Повторить
-                    </Link>
-                </Button>
+                    </Button>
+                </Form>
                 <Form
                     action={study.answer(flashcardId).url}
                     method="post"

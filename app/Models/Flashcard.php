@@ -28,6 +28,7 @@ class Flashcard extends Model
         'cloze_text',
         'short_answer',
         'assemble_chunks',
+        'note',
         'correct_streak',
         'correct_modes',
         'required_correct',

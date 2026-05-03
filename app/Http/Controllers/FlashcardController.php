@@ -16,7 +16,7 @@ class FlashcardController extends Controller
         'id', 'category', 'topic', 'difficulty',
         'question', 'answer',
         'code_example', 'code_language',
-        'cloze_text', 'short_answer', 'assemble_chunks',
+        'cloze_text', 'short_answer', 'assemble_chunks', 'note',
         'correct_streak', 'correct_modes', 'required_correct',
         'is_learned', 'next_review_at', 'srs_step',
     ];

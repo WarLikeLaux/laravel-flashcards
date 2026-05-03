@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Form } from '@inertiajs/react';
 import { Check, Eye, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryBadge } from '@/components/category-badge';
@@ -63,20 +63,20 @@ export function RevealMode({ flashcard }: { flashcard: Flashcard }) {
                             icon={<X />}
                             fullWidthOnMobile
                         />
-                        <Button
-                            asChild
-                            type="button"
-                            variant="outline"
+                        <Form
+                            action={study.skip(flashcard.id).url}
+                            method="post"
                             className="w-full sm:w-auto"
                         >
-                            <Link
-                                href={`${study.show().url}?exclude=${flashcard.id}`}
-                                preserveScroll={false}
+                            <Button
+                                type="submit"
+                                variant="outline"
+                                className="w-full sm:w-auto"
                             >
                                 <RotateCcw />
                                 Повторить
-                            </Link>
-                        </Button>
+                            </Button>
+                        </Form>
                         <AnswerForm
                             flashcardId={flashcard.id}
                             result="correct"

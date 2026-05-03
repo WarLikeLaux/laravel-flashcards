@@ -10,6 +10,7 @@ export type Flashcard = {
     cloze_text: string | null;
     short_answer: string | null;
     assemble_chunks: string[] | null;
+    note: string | null;
     correct_streak: number;
     correct_modes: string[] | null;
     required_correct: number;

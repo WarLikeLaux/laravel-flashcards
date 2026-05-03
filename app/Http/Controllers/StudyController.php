@@ -16,7 +16,7 @@ class StudyController extends Controller
         'id', 'category', 'topic', 'difficulty',
         'question', 'answer',
         'code_example', 'code_language',
-        'cloze_text', 'short_answer', 'assemble_chunks',
+        'cloze_text', 'short_answer', 'assemble_chunks', 'note',
         'correct_streak', 'correct_modes', 'required_correct',
         'is_learned', 'next_review_at', 'srs_step',
     ];
@@ -70,6 +70,17 @@ class StudyController extends Controller
             'matching' => null,
             'stats' => $this->stats(),
         ]);
+    }
+
+    public function skip(Flashcard $flashcard): RedirectResponse
+    {
+        FlashcardEvent::create([
+            'flashcard_id' => $flashcard->id,
+            'kind' => 'skipped',
+            'occurred_at' => now(),
+        ]);
+
+        return redirect()->route('study.show', ['exclude' => $flashcard->id]);
     }
 
     public function answer(Flashcard $flashcard): RedirectResponse
