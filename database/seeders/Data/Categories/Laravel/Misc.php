@@ -263,11 +263,23 @@ env(\'APP_NAME\');    // null после config:cache в проде',
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Что такое Laravel Vapor и Forge?',
-                'answer' => 'Forge - сервис для развёртывания Laravel-приложений на VPS (DigitalOcean, AWS, Linode). Автоматизирует настройку nginx, php-fpm, supervisor, SSL, deploy через git. Vapor - serverless-платформа для Laravel на AWS Lambda. Не нужны серверы, оплата по запросам, автомасштабирование. Подводный камень Vapor: не все Laravel-фичи работают (storage local не подходит, нужен S3).',
-                'code_example' => null,
-                'code_language' => null,
-                'difficulty' => 2,
+                'question' => 'Что такое Laravel Vapor и Forge? Какие у них подводные камни?',
+                'answer' => 'Forge - сервис для развёртывания Laravel-приложений на VPS (DigitalOcean, AWS, Linode). Автоматизирует настройку nginx, php-fpm, supervisor, SSL, deploy через git. Vapor - serverless-платформа для Laravel на AWS Lambda. Не нужны серверы, оплата по запросам, автомасштабирование. Главный подводный камень Vapor - файловая система. В Lambda есть директория /tmp размером до 10 GiB (по умолчанию 512 MB, конфигурируется), которая ТЕХНИЧЕСКИ работает: можно временно сохранить файл, обработать, отдать клиенту или загрузить в S3 в рамках одного запроса. Но /tmp ЭФЕМЕРНА - между прогревами контейнера данные теряются, между разными контейнерами не шарятся. Поэтому для персистентного хранения (avatars, uploads, generated PDFs) обязателен S3 диск; для transient-обработки (распаковать, отресайзить, удалить) /tmp вполне подходит. Также важно: в Vapor нет долгоживущих процессов - очереди работают через SQS, расписание - через CloudWatch, websockets - через отдельный сервис (Pusher/Ably/Reverb на EC2).',
+                'code_example' => '<?php
+// config/filesystems.php - в Vapor местный disk заворачивают в /tmp
+"local" => [
+    "driver" => "local",
+    "root"   => "/tmp", // эфемерно, но работает в рамках одного invoke
+],
+
+// Workflow: скачали → обработали → залили в S3
+$tmp = Storage::disk("local")->path("export.csv");
+file_put_contents($tmp, $csvContent);          // /tmp/export.csv
+$pdf = $this->renderPdf($tmp);                 // тоже в /tmp
+Storage::disk("s3")->put("reports/{$id}.pdf", file_get_contents($pdf));
+unlink($tmp); unlink($pdf);                    // подчистить за собой',
+                'code_language' => 'php',
+                'difficulty' => 3,
                 'topic' => 'laravel.misc',
             ],
             [
@@ -330,6 +342,132 @@ class Product extends Model {
     }
 }
 // php artisan scout:import App\\Models\\Product',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.misc',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое DTO (Data Transfer Object) и зачем они нужны в Laravel?',
+                'answer' => 'DTO - объект для передачи типизированных данных между слоями приложения (Request → Action/Service → Repository, Service → Job, Service → API client). Заменяет передачу ассоциативных массивов вида $request->validated(), которые: (1) не дают автокомплита и статической проверки типов; (2) превращаются в "магические строки" по ключам, и переименование поля ломает всё молча; (3) не валидируются повторно при передаче в job (где исходный Request уже недоступен). DTO решает это: класс с явно типизированными readonly-свойствами, конструктор делает контракт явным, IDE подсказывает поля, phpstan ловит опечатки. В современном Laravel чаще всего используют PHP 8.1+ readonly-классы с named arguments либо пакет spatie/laravel-data, который умеет автоматически собирать DTO из Request, валидировать и сериализовать обратно в JSON. Для job DTO критичен: сериализуется в очередь как обычный объект, без зависимости от Request. Антипаттерн: передавать в Action/Job сырой $request - это нарушает single responsibility и делает класс непригодным к запуску из консоли/теста.',
+                'code_example' => '<?php
+// Чистый PHP 8.1+ readonly DTO
+final readonly class CreateOrderData
+{
+    public function __construct(
+        public int $userId,
+        public string $currency,
+        public array $items,        // OrderItemData[]
+        public ?string $promoCode = null,
+    ) {}
+
+    public static function fromRequest(StoreOrderRequest $r): self
+    {
+        return new self(
+            userId:    $r->user()->id,
+            currency:  $r->validated("currency"),
+            items:     array_map(OrderItemData::fromArray(...), $r->validated("items")),
+            promoCode: $r->validated("promo"),
+        );
+    }
+}
+
+// Использование - типизированный контракт между слоями
+public function store(StoreOrderRequest $r, CreateOrderAction $action) {
+    $order = $action->execute(CreateOrderData::fromRequest($r));
+    return new OrderResource($order);
+}
+
+// spatie/laravel-data делает то же декларативно
+class CreateOrderData extends Data {
+    public function __construct(
+        public int $userId,
+        #[Rule("required|string|size:3")] public string $currency,
+        #[DataCollectionOf(OrderItemData::class)] public array $items,
+    ) {}
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.misc',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'В чём разница между Service и Action классами? Когда что выбирать?',
+                'answer' => 'Service - класс с НЕСКОЛЬКИМИ публичными методами, объединёнными общей предметной областью: UserService::create(), update(), suspend(), restore(). Action - класс с ОДНИМ публичным методом (execute / handle / __invoke), инкапсулирующий ровно одну операцию: CreateUserAction, SuspendUserAction. Это разные уровни декомпозиции, а не "правильный/неправильный". Когда Service: набор простых CRUD-операций, между которыми много общего state/зависимостей; точка входа в bounded context для не-DDD-проектов. Когда Action: операции имеют разные зависимости (одна нуждается в почтовом клиенте, другая - в платёжном API), сложную бизнес-логику внутри, или должны переиспользоваться в Controller + ArtisanCommand + Job. Минусы Service: со временем разрастается до "god object" на 30 методов, тесты тяжёлые (приходится мокать всё, даже не используемое в данном тесте), DI-конструктор раздут. Минусы Action: больше файлов, между связанными операциями нужно прыгать. Прагматичный подход: начинать с Service, выделять Action, когда метод стал толстым (>30 строк) или появились свои зависимости. В обоих случаях контроллер тонкий: validate → call → return resource.',
+                'code_example' => '<?php
+// Service - связка CRUD на одной сущности
+final class UserService
+{
+    public function __construct(
+        private Mailer $mailer,
+        private AuditLogger $audit,
+    ) {}
+
+    public function create(CreateUserData $data): User { /* ... */ }
+    public function update(User $u, UpdateUserData $d): User { /* ... */ }
+    public function suspend(User $u, string $reason): void { /* ... */ }
+    public function restore(User $u): void { /* ... */ }
+}
+
+// Action - одна тяжёлая операция со своими зависимостями
+final class ChargeFailedPaymentRetryAction
+{
+    public function __construct(
+        private StripeClient $stripe,         // нужен только здесь
+        private RetryPolicyResolver $policy,  // нужен только здесь
+        private SlackNotifier $slack,
+    ) {}
+
+    public function execute(Payment $payment): PaymentResult
+    {
+        // 50 строк сложной логики ретраев
+    }
+}
+
+// Один и тот же Action из разных входных точек:
+// - HTTP: PaymentController::retry() → $action->execute($payment)
+// - CLI:  RetryFailedPaymentsCommand::handle() → foreach ... $action->execute($p)
+// - Job:  RetryPaymentJob::handle(ChargeFailedPaymentRetryAction $a) → $a->execute(...)',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.misc',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое фасад Context (Laravel 11+) и зачем он нужен?',
+                'answer' => 'Context (Illuminate\Support\Facades\Context, появился в Laravel 11) - это механизм для хранения метаданных в рамках текущего request/job, которые автоматически добавляются ко всем log-записям и автоматически передаются в queued jobs. Простыми словами: вы один раз пишете Context::add("trace_id", $id) в начале запроса, и это значение попадёт в каждую log-строку этого запроса, а также автоматически окажется доступно внутри любого job, диспатченного во время этого запроса. Это решает классическую проблему observability: связать логи разных слоёв (controller → service → job → notification) одним trace_id, не таская его руками через каждый параметр. Под капотом Context живёт в singleton сервиса в контейнере, корректно сбрасывается между запросами в Octane (через scoped binding), а при dispatch job текущий снимок Context-а сериализуется в payload job-а и восстанавливается в воркере. Также есть hidden context (Context::addHidden()) - не попадает в логи, но передаётся между job-ами; полезно для tenant_id или auth-state. Заменяет хак с глобальным singleton + Log::shareContext().',
+                'code_example' => '<?php
+// Middleware - добавляем trace_id один раз
+class AssignTraceId
+{
+    public function handle(Request $request, Closure $next)
+    {
+        Context::add("trace_id", $request->header("X-Trace-Id", (string) Str::uuid()));
+        Context::add("user_id",  $request->user()?->id);
+
+        return $next($request);
+    }
+}
+
+// Где-то глубоко в коде
+Log::info("Order created", ["order_id" => $order->id]);
+// → лог уже содержит trace_id и user_id из Context
+
+// Job, диспатченный в этом запросе
+class ProcessOrder implements ShouldQueue
+{
+    public function handle()
+    {
+        // здесь Context::get("trace_id") вернёт ТОТ ЖЕ trace_id,
+        // что был у HTTP-запроса, инициировавшего dispatch
+        Log::info("Processing order"); // тоже с trace_id
+    }
+}
+
+// Hidden context - в логи не попадает, в job - передаётся
+Context::addHidden("tenant_id", $tenant->id);
+
+// В Octane контекст изолирован между запросами - утечки не будет',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.misc',

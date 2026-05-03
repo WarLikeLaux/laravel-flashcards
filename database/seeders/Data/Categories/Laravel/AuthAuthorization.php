@@ -81,6 +81,37 @@ $user->can(\'update\', $post);',
             ],
             [
                 'category' => 'Laravel',
+                'question' => 'Что такое уязвимость IDOR и как её предотвращать в Laravel?',
+                'answer' => 'IDOR (Insecure Direct Object Reference) - атака, при которой авторизованный пользователь меняет идентификатор в URL/теле запроса (/orders/5 → /orders/6, или body { "user_id": 7 }) и получает доступ к чужой сущности. Уязвимость возникает, когда контроллер находит модель только по первичному ключу, не проверяя ВЛАДЕНИЕ. Ловушка: route model binding (Order $order) сам по себе не защищает - он лишь делает Order::findOrFail($id), не зная про текущего пользователя. Три способа защиты, по возрастанию надёжности: 1) Policy + $this->authorize() в контроллере - явная проверка владения на уровне домена, легко тестировать, видно в логах. 2) Scoped query через отношение текущего пользователя: Auth::user()->orders()->findOrFail($id) - SQL-запрос изначально содержит WHERE user_id = ?, просто невозможно достать чужое. 3) Scoped implicit binding через Route::scopeBindings() (или метод scopeBindings() на конкретном роуте) - заставляет Laravel при /users/{user}/orders/{order} проверять, что order принадлежит user. Также: для multi-tenant приложений заворачивайте всё в Global Scope с tenant_id, и тестируйте политики через actingAs($otherUser)->getJson("/orders/{$ownOrder->id}")->assertForbidden(). Никогда не доверяйте $request->input("user_id") - всегда брать $request->user()->id.',
+                'code_example' => '<?php
+// УЯЗВИМО: route model binding без проверки владения
+public function show(Order $order) {
+    return new OrderResource($order); // /orders/6 от чужого юзера → утечка
+}
+
+// 1) Через Policy - явно
+public function show(Order $order) {
+    $this->authorize("view", $order); // OrderPolicy::view → user_id === auth()->id()
+    return new OrderResource($order);
+}
+
+// 2) Scoped query - запросом, не PHP-проверкой
+public function show(int $id) {
+    $order = $request->user()->orders()->findOrFail($id);
+    return new OrderResource($order);
+}
+
+// 3) Scoped implicit binding - Laravel сам проверит связь
+Route::get("/users/{user}/orders/{order}", function (User $user, Order $order) {
+    // order гарантированно принадлежит user (WHERE user_id = users.id)
+    return $order;
+})->scopeBindings();',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.auth_authorization',
+            ],
+            [
+                'category' => 'Laravel',
                 'question' => 'Что такое CSRF и как Laravel защищает от него?',
                 'answer' => 'CSRF (Cross-Site Request Forgery) - атака, при которой пользователя заставляют отправить запрос с его сессией на ваш сайт с другого. Laravel автоматически защищает все POST/PUT/DELETE формы web-роутов через middleware VerifyCsrfToken. В формах нужен @csrf, в Ajax - заголовок X-CSRF-TOKEN. Можно исключить роуты через $except.',
                 'code_example' => '<form method="POST">

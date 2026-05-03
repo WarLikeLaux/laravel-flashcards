@@ -46,14 +46,30 @@ class ServiceProviders
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Как работают deferred service providers и зачем они нужны?',
-                'answer' => 'Deferred provider не загружается при бутстрапе; в кэшированном manifest указано, какие сервисы он предоставляет. Когда контейнер впервые резолвит один из этих сервисов, провайдер регистрируется и загружается лениво. Это сокращает cold-start: тяжёлые провайдеры (платёжные SDK, поисковые движки) не запускаются, если не нужны. Условия: реализовать DeferrableProvider, метод provides() возвращает список биндов.',
+                'question' => 'Как работают deferred service providers и какие у них ограничения?',
+                'answer' => 'Deferred provider не загружается при бутстрапе; в кэшированном manifest (bootstrap/cache/services.php) указано, какие сервисы он предоставляет. Когда контейнер впервые резолвит один из этих сервисов, провайдер регистрируется и загружается лениво. Это сокращает cold-start: тяжёлые провайдеры (платёжные SDK, поисковые движки) не запускаются, если не нужны. Условия: реализовать DeferrableProvider, метод provides() возвращает список биндов. ВАЖНОЕ ОГРАНИЧЕНИЕ из официальной документации: "If your provider is ONLY registering bindings in the service container, you may choose to defer its registration". То есть deferred-провайдер пригоден ИСКЛЮЧИТЕЛЬНО для регистрации биндингов в контейнере. Любая логика в boot() (регистрация роутов, вьюшек, blade-директив, event listeners, view composers, gates/policies) НЕ выполнится при бутстрапе - она запустится только если кто-то явно резолвит один из сервисов из provides(). Поэтому если в провайдере есть и тяжёлый bind, и регистрация роутов - его НЕЛЬЗЯ делать deferred, иначе роуты молча перестанут работать.',
                 'code_example' => '<?php
-class StripeServiceProvider extends ServiceProvider implements DeferrableProvider {
+// OK: только container bindings - можно делать deferred
+class StripeServiceProvider extends ServiceProvider implements DeferrableProvider
+{
     public function register(): void {
-        $this->app->singleton(StripeClient::class, fn() => new StripeClient(config("services.stripe.key")));
+        $this->app->singleton(StripeClient::class,
+            fn() => new StripeClient(config("services.stripe.key")));
     }
     public function provides(): array { return [StripeClient::class]; }
+}
+
+// ЛОВУШКА: с deferred этот boot() НЕ вызовется при бутстрапе
+class WrongDeferredProvider extends ServiceProvider implements DeferrableProvider
+{
+    public function register(): void {
+        $this->app->singleton(SearchService::class, fn() => new SearchService());
+    }
+    public function boot(): void {
+        Route::get("/search", SearchController::class); // НЕ зарегистрируется!
+        Event::listen(UserCreated::class, IndexUserListener::class); // НЕ подпишется!
+    }
+    public function provides(): array { return [SearchService::class]; }
 }',
                 'code_language' => 'php',
                 'difficulty' => 4,

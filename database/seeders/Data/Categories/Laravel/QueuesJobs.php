@@ -144,16 +144,34 @@ php artisan config:cache route:cache event:cache',
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Безопасно ли использовать DB::transaction внутри job очереди и какие нюансы?',
-                'answer' => 'Безопасно, но с оговорками. afterCommit() - слушатели/события, диспатченные внутри транзакции, должны выполниться только после её коммита, иначе job стартует и не найдёт данных. С Laravel 8+ можно ставить $afterCommit=true на job или использовать DB::afterCommit(). Длинные транзакции внутри job блокируют строки - лучше делать short-lived транзакции и идемпотентные операции.',
+                'question' => 'Как правильно диспатчить jobs внутри DB::transaction и как включить afterCommit глобально?',
+                'answer' => 'Если внутри транзакции диспатчить job без оговорок, воркер может подхватить его ДО коммита внешней транзакции - и не найти ещё не закоммиченных строк (race-condition между приложением и воркером). Решения по возрастанию стоимости: 1) DB::afterCommit(fn() => Job::dispatch(...)) - точечно. 2) Свойство public bool $afterCommit = true; на классе Job - откладывает диспатч до фактического коммита САМОГО внешнего уровня (вложенные SAVEPOINT не считаются). 3) ГЛОБАЛЬНО для всего соединения очереди - в config/queue.php у нужного драйвера выставить "after_commit" => true; тогда КАЖДЫЙ job, отправленный в это соединение, ждёт коммита, и не нужно дублировать $afterCommit на каждом классе. Это удобно, когда вся команда работает в транзакциях и забывать про afterCommit опасно. Также важно: длинные транзакции внутри job блокируют строки и держат connection - предпочитайте short-lived транзакции и идемпотентные операции (см. ShouldBeUnique / WithoutOverlapping).',
                 'code_example' => '<?php
+// Вариант 1: точечно
+DB::transaction(function () use ($order) {
+    $order->save();
+    DB::afterCommit(fn() => SendInvoice::dispatch($order));
+});
+
+// Вариант 2: на конкретном Job
 class SendInvoice implements ShouldQueue {
     public bool $afterCommit = true;
 }
-DB::transaction(function () use ($order) {
-    $order->save();
-    SendInvoice::dispatch($order); // сработает после COMMIT
-});',
+
+// Вариант 3: глобально для всего соединения - config/queue.php
+"connections" => [
+    "redis" => [
+        "driver"       => "redis",
+        "connection"   => "default",
+        "queue"        => env("REDIS_QUEUE", "default"),
+        "retry_after"  => 90,
+        "block_for"    => null,
+        "after_commit" => true, // ← все jobs ждут commit, без $afterCommit на каждом
+    ],
+],
+
+// Точечно отключить для одного диспатча, если глобально true:
+SendCriticalAlert::dispatch($incident)->beforeCommit();',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.queues_jobs',
@@ -195,6 +213,47 @@ class ProcessPayment implements ShouldQueue
 
 // Регистрация лимитера для RateLimited
 RateLimiter::for("payments-api", fn () => Limit::perMinute(10));',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.queues_jobs',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что делать, если воркер очереди завис? Чем отличается timeout от retry_after, и причём здесь pcntl?',
+                'answer' => 'Зависший job (бесконечный цикл, deadlock на внешнем API без таймаута) - типичная боль prod-очередей. Laravel предлагает два независимых механизма с разной семантикой. (1) --timeout=N в queue:work / queue:listen - это HARD KILL процесса воркера снаружи через сигнал SIGTERM/SIGKILL по истечении N секунд. КРИТИЧНОЕ требование из документации: "The PCNTL PHP extension must be installed in order to specify job timeouts". Без pcntl флаг --timeout молча игнорируется, и бесконечный цикл не прервётся ничем. PCNTL не работает на Windows нативно (нужен WSL/Docker). Когда job убит по таймауту - метод failed() НЕ вызывается, потому что процесс убит снаружи; нужны Horizon-метрики или supervisor-логи, чтобы заметить. (2) retry_after в config/queue.php - это TTL "видимости" job в очереди: если job не закоммитил delete за retry_after секунд, очередь считает его упавшим и выдаёт ВТОРОМУ воркеру. Если retry_after меньше или равно --timeout - job будет дублироваться: первый воркер ещё пишет данные, а второй уже взял ту же задачу. Документированное правило: "The --timeout value should always be at least several seconds shorter than your retry_after configuration value" - например, timeout=60, retry_after=90. После деплоя обязательно queue:restart, иначе старые воркеры держат старый код. Также для долгоиграющих jobs делайте идемпотентность (ShouldBeUnique / WithoutOverlapping), потому что at-least-once гарантия очереди = "когда-то выполнится дважды".',
+                'code_example' => '<?php
+// На Job - per-job таймаут (требует pcntl)
+class GenerateMonthlyReport implements ShouldQueue
+{
+    public int $timeout = 600; // 10 минут максимум
+    public int $tries   = 3;
+
+    public function failed(\Throwable $e): void {
+        // ВНИМАНИЕ: при kill по таймауту это НЕ вызовется
+        Slack::alert("Report job failed", $e);
+    }
+}
+
+// config/queue.php - retry_after > timeout
+"connections" => [
+    "redis" => [
+        "driver"      => "redis",
+        "queue"       => "default",
+        "retry_after" => 660, // > 600 (timeout job)
+        "block_for"   => null,
+    ],
+],
+
+// supervisor - всегда с --timeout, но pcntl должен быть установлен
+// php -m | grep pcntl  (если пусто - timeout не работает)
+[program:laravel-worker]
+command=php /var/www/artisan queue:work redis --queue=default \
+    --timeout=600 --tries=3 --max-time=3600
+autorestart=true
+numprocs=4
+
+// После деплоя
+php artisan queue:restart // воркеры грейсфул-завершатся, supervisor поднимет с новым кодом',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.queues_jobs',

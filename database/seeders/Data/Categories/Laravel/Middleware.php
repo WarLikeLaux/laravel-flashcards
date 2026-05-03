@@ -81,15 +81,26 @@ Route::middleware(\'throttle:api\')->group(...);',
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Как работает rate limiting в Laravel и в чём разница между Redis и database драйвером?',
-                'answer' => 'RateLimiter использует cache-store: Redis даёт атомарные INCR/EXPIRE, что критично при гонках; database-драйвер делает SELECT/UPDATE и подвержен race-conditions при высоких RPS. Для распределённой системы и точного counting нужен Redis с sliding-window или token-bucket. RateLimiter::for() в RouteServiceProvider определяет лимиты, throttle:apiName применяет.',
+                'question' => 'Как работает rate limiting в Laravel и почему предпочтителен Redis-драйвер?',
+                'answer' => 'RateLimiter работает поверх cache-store. Под капотом и Redis, и database драйвер используют атомарные операции (Redis - INCR/EXPIRE, database - инкремент через UPDATE и cache-locks), так что at-the-protocol-level гонок не должно быть в обоих. Тем не менее Redis на проде предпочтительнее по двум причинам: (1) производительность - всё в RAM, INCR/EXPIRE - O(1), нагрузка на БД не растёт от каждого запроса; (2) TTL автоматически обслуживается Redis-сервером (просроченные ключи удаляются), тогда как для database-драйвера протухшие записи висят в таблице cache, пока их не удалит cache:prune-stale-tags / cron. На больших RPS database-драйвер ещё и забивает binlog/WAL бессмысленными апдейтами счётчиков. RateLimiter::for() в AppServiceProvider определяет лимит, throttle:apiName применяет; ключ задаётся через by() (user_id, ip, header). Также с Laravel 11+ доступен perSecond() для тонкого ограничения burst-трафика.',
                 'code_example' => '<?php
+// AppServiceProvider::boot() (Laravel 11+)
 RateLimiter::for("api", fn (Request $r) =>
     $r->user() ? Limit::perMinute(60)->by($r->user()->id)
                : Limit::perMinute(10)->by($r->ip())
 );
+
+// тонкое ограничение burst (Laravel 11+)
+RateLimiter::for("uploads", fn (Request $r) =>
+    Limit::perSecond(2)->by($r->user()->id)
+);
+
 // routes/api.php
-Route::middleware("throttle:api")->group(...);',
+Route::middleware("throttle:api")->group(...);
+
+// .env - какой драйвер используется
+CACHE_STORE=redis    // production
+CACHE_STORE=database // dev/small projects',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.middleware',

@@ -357,6 +357,100 @@ DB::transaction(function () use ($from, $to, $sum) {
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_advanced',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'В чём разница между whereIn и whereIntegerInRaw, и когда выбирать второй?',
+                'answer' => 'whereIn($col, $array) использует PDO-bindings: для каждого элемента массива добавляется плейсхолдер (?), значение проходит через драйвер БД и экранируется. Это безопасно для строк/смешанных типов, но имеет цену: на 50 000 ID будет 50 000 плейсхолдеров, что упирается в лимиты драйвера (PDO имеет лимит на 65 535 параметров на запрос в MySQL/MariaDB), сильно нагружает парсер SQL и сжирает память при подготовке запроса. whereIntegerInRaw($col, $array) поступает иначе: каждый элемент массива принудительно кастится в (int) и подставляется ПРЯМО в SQL-строку без bindings: WHERE id IN (1, 2, 3, ...). Безопасно потому что (int) гарантирует - там не может оказаться SQL-инъекции; документированный профит - снижение использования памяти на стороне приложения при подготовке запроса с большим массивом. Когда использовать: импорты, синхронизация с внешним источником, broadcast-операции вида "обновить статус у списка из 100k записей". Для строк аналога нет - там нужен либо ->whereIn() c осознанием лимитов, либо chunk на части по 1000-5000 ID, либо JOIN со временной таблицей.',
+                'code_example' => '<?php
+// проблема - массив на 50_000 ID
+$ids = User::where("region", "EU")->pluck("id")->all();
+
+// whereIn: 50_000 плейсхолдеров - упрётся в лимит PDO/высокая память
+User::whereIn("id", $ids)->update(["gdpr_notified_at" => now()]);
+
+// whereIntegerInRaw: SQL вида WHERE id IN (1,2,3,...) без bindings
+User::whereIntegerInRaw("id", $ids)->update(["gdpr_notified_at" => now()]);
+
+// Также есть whereIntegerNotInRaw - инверсия
+
+// Для строк - chunk
+collect($emails)->chunk(1000)->each(function ($chunk) {
+    User::whereIn("email", $chunk->all())->update([...]);
+});',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как настроить read/write connections в Laravel и что делает опция sticky?',
+                'answer' => 'В config/database.php у соединения можно указать массив "read" и "write" с отдельными хостами: SELECT-запросы пойдут на read-реплику, INSERT/UPDATE/DELETE - на write (master). Это горизонтально масштабирует чтение в типичном "много чтений / мало записей" приложении. Подводный камень: репликация асинхронна, лаг между master и реплики - десятки миллисекунд (а под нагрузкой - секунды). Классический баг: создаём пользователя POST /users → сразу редирект на GET /users/{id} → юзер не найден, потому что INSERT ушёл в master, а SELECT - в реплику, куда строка ещё не доехала. Решение - опция "sticky" => true в конфиге соединения: ОПЦИОНАЛЬНО (по умолчанию false, нужно включить руками), и если включено, то после ЛЮБОЙ операции записи в текущем request cycle все последующие SELECT того же запроса автоматически идут на write-соединение. Это даёт "read your own writes" гарантию ценой снятия части нагрузки с реплик после первого write. Если sticky выключен и нужно прочитать только что записанные данные - явно использовать DB::connection("mysql")->select() с указанием write, либо $model->refresh() с опцией useWritePdo() (Model::on("mysql")->useWritePdo()->find($id)).',
+                'code_example' => '<?php
+// config/database.php
+"connections" => [
+    "mysql" => [
+        "driver"   => "mysql",
+        "read"     => ["host" => ["10.0.0.2", "10.0.0.3"]], // реплики
+        "write"    => ["host" => "10.0.0.1"],               // master
+        "sticky"   => true, // ← по умолчанию false, обязательно включить руками
+        "database" => env("DB_DATABASE"),
+        "username" => env("DB_USERNAME"),
+        "password" => env("DB_PASSWORD"),
+    ],
+],
+
+// Без sticky - багопасный паттерн
+$user = User::create($data);          // → master
+return redirect("/users/{$user->id}"); // → реплика, может вернуть 404
+
+// С sticky - SELECT после write идёт в master весь оставшийся request
+
+// Принудительно использовать master разово
+$fresh = User::on("mysql")->useWritePdo()->find($user->id);',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как использовать PHP 8.1 Backed Enums в роутах, $casts моделей и валидации?',
+                'answer' => 'Laravel 9+ поддерживает PHP 8.1 backed enums (string или int) в трёх ключевых местах. 1) В роутах через Implicit Enum Binding: если параметр в сигнатуре контроллера затайпхинчен enum-классом, Laravel автоматически попытается создать экземпляр через Enum::tryFrom($urlValue); если значение не соответствует ни одному case - ОФИЦИАЛЬНО возвращается 404 без необходимости вручную проверять. 2) В модели в массиве $casts: "status" => UserStatus::class - при чтении атрибута получаете объект Enum, при сохранении в БД уходит ->value (строка/int); работает и с однозначными, и с массивами enums (AsEnumCollection). 3) В валидации через Rule::enum(UserStatus::class) - проверяет, что значение есть в case-ах. Также есть has() / In::enum() для расширенных кейсов. Бонус: в Blade и Resource классе можно сравнивать через ===, потому что enum - это singleton по case, а не строка. Подводный камень: чистый enum (без ": string"/": int") НЕ поддерживается ни в роутах, ни в $casts - нужен именно backed enum, потому что нужно соответствие БД-значению.',
+                'code_example' => '<?php
+// 1) Enum
+enum UserStatus: string {
+    case Active    = "active";
+    case Suspended = "suspended";
+    case Banned    = "banned";
+}
+
+// 2) В роуте - 404 на невалидном значении из коробки
+Route::get("/users/by-status/{status}", function (UserStatus $status) {
+    return User::where("status", $status->value)->get();
+});
+// /users/by-status/active   → ok
+// /users/by-status/whatever → 404 без if-ов
+
+// 3) В модели - двусторонний каст
+class User extends Model {
+    protected $casts = [
+        "status" => UserStatus::class,
+    ];
+}
+$user->status === UserStatus::Active; // bool, без сравнения строк
+
+// 4) В валидации
+$request->validate([
+    "status" => [Rule::enum(UserStatus::class)],
+]);
+
+// 5) Коллекция enums (Laravel 11+)
+protected $casts = [
+    "permissions" => AsEnumCollection::class . ":" . Permission::class,
+];',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
         ];
     }
 }

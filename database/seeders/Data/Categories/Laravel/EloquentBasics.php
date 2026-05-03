@@ -184,8 +184,8 @@ $users = DB::table(\'users\')
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Что такое DB::transaction и как использовать вложенные транзакции?',
-                'answer' => 'DB::transaction оборачивает код в транзакцию: если внутри callback бросается исключение - rollback, иначе - commit. Поддерживаются deadlock-retries (второй аргумент). Вложенные транзакции реализуются через savepoints. Альтернатива: DB::beginTransaction, DB::commit, DB::rollBack вручную.',
+                'question' => 'Что такое DB::transaction и как работают вложенные транзакции?',
+                'answer' => 'DB::transaction оборачивает код в транзакцию: если внутри callback бросается исключение - rollback, иначе - commit. Поддерживаются deadlock-retries (второй аргумент). Альтернатива: DB::beginTransaction, DB::commit, DB::rollBack вручную. Важный нюанс про вложенные транзакции: в MySQL/Postgres настоящих nested transactions НЕ существует, Laravel эмулирует их через SAVEPOINT. Из этого вытекает классическая ловушка: если ВНЕШНЯЯ транзакция откатится, откатятся и все ранее "успешно закоммиченные" внутренние - они были лишь точками отката, не самостоятельными транзакциями. Поэтому события/уведомления, которые должны сработать только после фактического коммита, оборачивают в DB::afterCommit() или используют свойство $afterCommit на job/listener.',
                 'code_example' => 'DB::transaction(function () {
     User::create([...]);
     Post::create([...]);
@@ -199,7 +199,17 @@ try {
 } catch (\Throwable $e) {
     DB::rollBack();
     throw $e;
-}',
+}
+
+// Ловушка вложенности: внутренний "commit" - это RELEASE SAVEPOINT,
+// откат внешней транзакции отменит и его.
+DB::transaction(function () use ($order) {
+    DB::transaction(function () use ($order) {
+        $order->update([\'status\' => \'paid\']); // SAVEPOINT trans2
+    }); // RELEASE SAVEPOINT trans2 - "закоммичено"
+
+    throw new \RuntimeException(\'fail\'); // откатит ВСЁ, включая update выше
+});',
                 'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'laravel.eloquent_basics',
@@ -257,6 +267,38 @@ Schema::create("orders", function (Blueprint $table) {
 
 // результат: 01HRZ8K3M9... - первые символы растут со временем
 // → новые ID идут в конец B-tree, без фрагментации',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем опасен DB::raw() и как делать безопасные подстановки в raw-выражения?',
+                'answer' => 'DB::raw() (и его обёртки selectRaw, whereRaw, orderByRaw, havingRaw) вставляет переданную строку прямо в SQL без экранирования - это окно для SQL-injection, если в строке оказались данные пользователя. Классический антипаттерн: ->whereRaw("status = \'{$request->status}\'"). Правильный способ - использовать ВТОРОЙ аргумент с массивом bindings, который проходит через PDO-плейсхолдеры (?) и экранируется драйвером БД: ->whereRaw("status = ?", [$request->status]). У selectRaw, orderByRaw, havingRaw - такой же второй аргумент. Если динамическим является имя столбца или направление сортировки (которые НЕЛЬЗЯ передать через bindings - это часть синтаксиса, а не значение), нужно жёстко валидировать вход через whitelist (in_array($column, $allowed, true)), иначе пользователь сможет передать "; DROP TABLE users;--". Безопасные альтернативы: для чисел - whereIntegerInRaw($col, $array) (Laravel сам кастит в int); для динамических колонок - Schema::hasColumn() + whitelist. Также избегайте DB::statement($userInput) - там вообще нет bindings.',
+                'code_example' => '<?php
+// УЯЗВИМО - SQL-injection
+DB::table("users")
+    ->whereRaw("email = \'" . request("email") . "\'")
+    ->get();
+
+DB::table("users")
+    ->orderByRaw(request("sort")) // "; DROP TABLE users;--"
+    ->get();
+
+// ПРАВИЛЬНО - bindings через ?
+DB::table("orders")
+    ->selectRaw("price * ? as price_with_tax", [1.0825])
+    ->whereRaw("price > IF(state = ?, ?, ?)", ["TX", 200, 100])
+    ->get();
+
+// Динамическая колонка - whitelist, не bindings
+$allowed = ["id", "created_at", "name"];
+$column  = in_array(request("sort"), $allowed, true) ? request("sort") : "id";
+$direction = request("direction") === "desc" ? "desc" : "asc";
+User::orderBy($column, $direction)->get();
+
+// Безопасный путь для массива чисел
+User::whereIntegerInRaw("id", $userIds)->get();',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_basics',
