@@ -270,7 +270,7 @@ class LoggingCounter extends Counter
                 'topic' => 'oop.misc',
                 'difficulty' => 3,
                 'question' => 'Что такое typed properties и какие есть типы в PHP?',
-                'answer' => 'С PHP 7.4 свойства класса можно типизировать. Поддерживаются: скаляры (int, float, string, bool), массивы (array), объекты (классы и интерфейсы), iterable, nullable (?string), self/parent/static (только возвращаемый), union types (int|string, PHP 8.0), mixed (PHP 8.0), intersection types (Foo&Bar, PHP 8.1), never (PHP 8.1, только возвращаемый), DNF-типы ((Foo&Bar)|null, PHP 8.2), true/false/null как самостоятельные типы (PHP 8.2). callable нельзя использовать для свойств (только для параметров/возвращаемых). Типизированное свойство без значения по умолчанию находится в состоянии uninitialized - чтение до инициализации бросит Error.',
+                'answer' => 'С PHP 7.4 свойства класса можно типизировать. Поддерживаются: скаляры (int, float, string, bool), массивы (array), объекты (классы и интерфейсы), iterable, nullable (?string), self и parent (валидны как тип свойства, параметра и return), union types (int|string, PHP 8.0), mixed (PHP 8.0), intersection types (Foo&Bar, PHP 8.1), DNF-типы ((Foo&Bar)|null, PHP 8.2), true/false/null как самостоятельные типы (PHP 8.2). ТОЛЬКО return type: static (всегда; как тип свойства/параметра запрещён - PHP пишет syntax error) и never (PHP 8.1+). callable тоже только для параметров/return, не для свойств. Типизированное свойство без значения по умолчанию находится в состоянии uninitialized - чтение до инициализации бросит Error.',
                 'code_example' => '<?php
 class Profile
 {

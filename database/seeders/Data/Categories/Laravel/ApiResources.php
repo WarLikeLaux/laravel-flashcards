@@ -19,7 +19,7 @@ class ApiResources
         return [
             \'id\' => $this->id,
             \'name\' => $this->name,
-            \'email\' => $this->when($request->user()->is_admin, $this->email),
+            \'email\' => $this->when((bool) $request->user()?->is_admin, $this->email),
             \'posts\' => PostResource::collection($this->whenLoaded(\'posts\')),
         ];
     }

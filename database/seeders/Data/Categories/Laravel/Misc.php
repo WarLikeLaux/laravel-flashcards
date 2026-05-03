@@ -146,7 +146,8 @@ php artisan migrate
                 'question' => 'Почему нельзя использовать env() вне config-файлов после кеширования?',
                 'answer' => 'При config:cache Laravel выполняет все config-файлы и сохраняет результат. Файл .env при этом НЕ читается на каждом запросе. Если в коде вы вызовете env() напрямую (вне config), оно вернёт null в продакшене. Правильно: значения env читать только в config/, а в коде использовать config(\'app.something\').',
                 'code_example' => '// плохо - в коде
-$key = env(\'STRIPE_KEY\'); // null после config:cache!
+$key = env(\'STRIPE_KEY\'); // вернёт OS-env / default, но не значение из .env
+                          // после config:cache - частый источник "пустых" переменных в проде
 
 // правильно
 // config/services.php
@@ -247,7 +248,7 @@ public function store(StoreUserRequest $r, CreateUserAction $a) {
             [
                 'category' => 'Laravel',
                 'question' => 'В чём разница между config() и env()?',
-                'answer' => 'env() читает значение из .env файла напрямую. config() читает значение из загруженных конфигов в памяти. ENV доступен везде ТОЛЬКО ДО config:cache, после кеширования env() возвращает null вне config-файлов. config() работает всегда, потому что значения зашиты в кеш.',
+                'answer' => 'env() читает переменную из окружения процесса (через $_ENV/getenv()). До php artisan config:cache Laravel загружает .env через Dotenv в это окружение, поэтому env() везде "работает". После config:cache загрузка .env пропускается, и env() видит ТОЛЬКО переменные, заданные на уровне ОС (Docker -e, systemd Environment=, переменные окружения сервера) либо вернёт второй аргумент-default. То есть после кеша env() в коде НЕ ВСЕГДА возвращает null - возвращает default/OS-env, если они есть; на практике в проде .env-only переменные становятся "невидимыми" - отсюда ощущение "вернёт null". Правильно: env() читать ТОЛЬКО в config/, в коде использовать config(). config() работает всегда - значения зашиты в кеш.',
                 'code_example' => '// .env
 APP_NAME=MyApp
 

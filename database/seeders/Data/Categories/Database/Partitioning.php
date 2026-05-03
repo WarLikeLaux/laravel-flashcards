@@ -93,7 +93,7 @@ EXPLAIN ANALYZE SELECT * FROM a JOIN b USING (id);',
             [
                 'category' => 'Базы данных',
                 'question' => 'Объясните уровни изоляции и какие аномалии каждый предотвращает.',
-                'answer' => 'READ UNCOMMITTED - допускает dirty read. READ COMMITTED - нет dirty, но возможны non-repeatable read и phantom. REPEATABLE READ - устраняет non-repeatable; в Postgres также фантомы (snapshot), в MySQL InnoDB - фантомы возможны без gap-locks. SERIALIZABLE - полная сериализуемость, в Postgres через SSI с rollback при конфликте, в InnoDB - через range-locks. Также есть write skew - отлавливается только Serializable.',
+                'answer' => 'READ UNCOMMITTED - допускает dirty read. READ COMMITTED - нет dirty, но возможны non-repeatable read и phantom. REPEATABLE READ - устраняет non-repeatable; в PostgreSQL (snapshot isolation) фантомы тоже исключены - остаётся только write skew / serialization anomalies; в MySQL InnoDB фантомы исключены за счёт MVCC для consistent reads и за счёт next-key/gap locks для locking reads. SERIALIZABLE - полная сериализуемость, в Postgres через SSI с rollback при конфликте (serialization_failure 40001), в InnoDB - через range/gap locks. Write skew отлавливается только на Serializable.',
                 'code_example' => '-- write skew пример
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT SUM(on_call) FROM doctors WHERE shift = \'night\';

@@ -40,7 +40,7 @@ $value = Cache::rememberForever(\'config\', fn() => loadHeavyConfig());',
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое cache tags?',
-                'answer' => 'Cache tags - это группировка кеш-записей по тегам, чтобы инвалидировать сразу группу. Поддерживается только в drivers redis/memcached. Простыми словами: пометили несколько ключей тегом "users" и потом одним вызовом сбросили все.',
+                'answer' => 'Cache tags - группировка кеш-записей по тегам, чтобы инвалидировать сразу группу. Простыми словами: пометили несколько ключей тегом "users" и потом одним вызовом сбросили все. Поддерживается ТОЛЬКО в drivers redis и memcached. database, file, dynamodb и array - tags() не работают (бросят BadMethodCallException). Если в проекте дефолтный store - database (как в Laravel 11 skeleton), а нужны теги - либо явно использовать Cache::store("redis")->tags(...), либо вместо тегов делать версионирование ключей ("users:v$version:{id}" + bump $version при инвалидации).',
                 'code_example' => 'Cache::tags([\'users\', \'admins\'])->put(\'user.1\', $user, 600);
 Cache::tags(\'users\')->flush(); // удалит всё с тегом users',
                 'code_language' => 'php',

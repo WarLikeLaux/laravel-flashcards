@@ -42,7 +42,7 @@ function abort(string $msg): never {
             [
                 'category' => 'PHP',
                 'question' => 'Что такое readonly свойства и классы?',
-                'answer' => 'readonly свойство (PHP 8.1+) можно записать ровно один раз из области видимости класса (обычно в конструкторе, но не строго только там). После первой записи попытка изменить - Error. Идеально для immutable value objects. readonly класс (PHP 8.2+) - все нестатические свойства автоматически readonly. Ограничения: только типизированные свойства, нельзя статические. До PHP 8.3 для "обновлённой" копии нужен был wither-метод, возвращающий new self(...) (clone не помогал, потому что присваивание новому свойству копии было запрещено). С PHP 8.3 readonly можно переинициализировать ВНУТРИ __clone() - появилось clone with: clone $obj и присвоение через __clone обновляет копию, оставляя оригинал нетронутым.',
+                'answer' => 'readonly свойство (PHP 8.1+) можно записать ровно один раз из области видимости класса (обычно в конструкторе, но не строго только там). После первой записи попытка изменить - Error. Идеально для immutable value objects. readonly класс (PHP 8.2+) - все нестатические свойства автоматически readonly. Ограничения: только типизированные свойства, нельзя статические. До PHP 8.3 для "обновлённой" копии использовался wither-метод, возвращающий new self(...). С PHP 8.3 (RFC "readonly amendments") readonly-свойства можно reinitialize СТРОГО внутри тела магического метода __clone() того класса, где они объявлены - то есть deep-cloning вложенных readonly-объектов и сброс кешированного state на копии стали возможны без обхода через Reflection. Важный нюанс: "reinitialize during cloning" означает именно ВНУТРИ __clone(), а не в любом коде после оператора clone - снаружи __clone() записать readonly-свойство по-прежнему Error.',
                 'code_example' => '<?php
 class Point {
     public function __construct(
@@ -50,7 +50,7 @@ class Point {
         public readonly float $y,
     ) {}
 
-    // ✅ Wither-метод - работает на любой версии 8.1+
+    // ✅ Wither - канонический паттерн для immutable update, работает с 8.1
     public function withX(float $x): self {
         return new self($x, $this->y);
     }
@@ -59,17 +59,24 @@ class Point {
 $p = new Point(1, 2);
 // $p->x = 5; // Error: cannot modify readonly
 
-// ✅ PHP 8.3 - можно переинициализировать readonly в __clone
-class Point83 {
+// ❌ ТАК НЕЛЬЗЯ даже на 8.3 - модификация снаружи __clone()
+// public function withX(float $x): self {
+//     $clone = clone $this;
+//     $clone->x = $x; // Error: Cannot modify readonly property
+//     return $clone;
+// }
+
+// ✅ PHP 8.3 - reinitialize ТОЛЬКО внутри __clone(); полезно для
+// глубокого клонирования и сброса кеша на копии
+class Order {
     public function __construct(
-        public readonly float $x,
-        public readonly float $y,
+        public readonly DateTimeImmutable $createdAt,
+        public readonly Money $total,
     ) {}
 
-    public function withX(float $x): self {
-        $clone = clone $this;
-        $clone->x = $x; // OK в __clone-сегменте, разрешено с 8.3
-        return $clone;
+    public function __clone(): void {
+        // OK - readonly можно записать в __clone того же класса
+        $this->total = clone $this->total; // deep clone вложенного VO
     }
 }
 
