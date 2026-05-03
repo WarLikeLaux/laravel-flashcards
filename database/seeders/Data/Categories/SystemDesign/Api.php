@@ -27,7 +27,7 @@ DELETE /api/users/42    - удалить',
             [
                 'category' => 'Архитектура систем',
                 'question' => 'В чём разница между REST, GraphQL и gRPC?',
-                'answer' => 'REST - HTTP + JSON, ресурсо-ориентированный, клиент берёт всё что отдаёт endpoint, кэшируется штатно через HTTP-кэш. GraphQL - один POST-endpoint, клиент в запросе указывает какие поля нужны (нет over/under-fetching), сильная типизация через SDL, но HTTP-кэш не работает (всё POST). gRPC - HTTP/2 + Protocol Buffers, бинарный, поддерживает 4 типа стриминга (unary, server-, client-, bidirectional), контракт через .proto, кодогенерация на 11+ языков. Выбор: REST - публичный API и CRUD, GraphQL - богатый UI с разными view, gRPC - межсервисное общение с низкой задержкой и стримингом.',
+                'answer' => 'REST - HTTP + JSON, ресурсо-ориентированный, клиент берёт всё что отдаёт endpoint, кэшируется штатно через HTTP-кэш по URL. GraphQL - один POST-endpoint, клиент в запросе указывает какие поля нужны (нет over/under-fetching), сильная типизация через SDL; стандартный HTTP-кэш по умолчанию НЕ работает (запросы POST с телом-JSON), но через Persisted Queries / APQ можно превратить в GET /graphql?hash=... и кешировать по hash в CDN/Varnish/browser-cache (см. отдельную карточку про архитектурные проблемы GraphQL). gRPC - HTTP/2 + Protocol Buffers, бинарный, поддерживает 4 типа стриминга (unary, server-, client-, bidirectional), контракт через .proto, кодогенерация на 11+ языков. Выбор: REST - публичный API и CRUD, GraphQL - богатый UI с разными view, gRPC - межсервисное общение с низкой задержкой и стримингом.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,

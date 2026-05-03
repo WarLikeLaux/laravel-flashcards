@@ -172,7 +172,7 @@ Post::onlyTrashed()->get();   // только удалённые',
             [
                 'category' => 'Laravel',
                 'question' => 'SoftDeletes ломает unique-индекс на email - как это правильно решать?',
-                'answer' => 'Классическая боль: на users.email стоит UNIQUE, юзер регистрируется → удаляет аккаунт (deleted_at заполняется) → пытается зарегистрироваться снова с тем же email → 23000/23505 (duplicate entry), потому что для БД "удалённая" запись физически жива и всё ещё держит email. Eloquent-валидация Rule::unique() умеет игнорировать soft-deleted (->ignore() / whereNull("deleted_at")), но БД-уровень уникальности про SoftDeletes ничего не знает. Решения: 1) PostgreSQL - partial unique index, элегантный путь: CREATE UNIQUE INDEX users_email_active ON users(email) WHERE deleted_at IS NULL. Уникальность проверяется только для живых записей; удалённые могут иметь какие угодно дубли email. В Laravel это $table->unique("email")->where("deleted_at IS NULL") нельзя - надо raw DB::statement в миграции. 2) MySQL/MariaDB - partial index НЕ поддерживается, используют составной UNIQUE (email, deleted_at). НО: в MySQL NULL != NULL для уникальности, поэтому два живых пользователя с deleted_at = NULL пройдут как уникальные - ровно то, что нужно; зато два удалённых с одной и той же datetime в deleted_at дадут конфликт. На практике либо принимают это (одинаковая datetime до миллисекунды редка), либо хранят deleted_at не как NULL/timestamp, а как 0/timestamp и составной индекс работает строго. 3) Альтернатива - hard delete + архивная таблица users_archive (свобода схемы, но теряются связи через foreign key). 4) Альтернатива - анонимизировать email при удалении (email = "deleted_{$id}@example.com"), uniqueness сохраняется естественно. Выбор зависит от: нужно ли восстанавливать аккаунт (тогда не аноним), есть ли GDPR/right-to-be-forgotten (тогда лучше hard delete), какая СУБД.',
+                'answer' => 'Классическая боль: на users.email стоит UNIQUE, юзер регистрируется → удаляет аккаунт (deleted_at заполняется) → пытается зарегистрироваться снова с тем же email → 23000/23505 (duplicate entry), потому что для БД "удалённая" запись физически жива и всё ещё держит email. Eloquent-валидация Rule::unique() умеет игнорировать soft-deleted (->ignore() / whereNull("deleted_at")), но БД-уровень уникальности про SoftDeletes ничего не знает. Решения: 1) PostgreSQL - partial unique index, элегантный путь: CREATE UNIQUE INDEX users_email_active ON users(email) WHERE deleted_at IS NULL. Уникальность проверяется только для живых записей; удалённые могут иметь какие угодно дубли email. В Laravel это $table->unique("email")->where("deleted_at IS NULL") нельзя - надо raw DB::statement в миграции. 2) MySQL/MariaDB - partial index НЕ поддерживается. Наивный составной UNIQUE (email, deleted_at) при дефолтном Laravel-поведении (deleted_at=NULL для живых) ЛОМАЕТСЯ: в MySQL для UNIQUE NULL != NULL, поэтому "(email=X, NULL)" и "(email=X, NULL)" считаются РАЗНЫМИ парами и БД пропустит ДВУХ ЖИВЫХ юзеров с одним email - уничтожает уникальность активных. Решения для MySQL: 2a) хранить deleted_at у живых не как NULL, а как sentinel (0 или 1970-01-01) - тогда (X, 0) дубли отлавливаются, (X, 2024-...) среди удалённых остаются уникальными по timestamp. Требует переопределить $dates / casts модели и прибить дефолт в схеме (DEFAULT 0). 2b) добавить generated column email_unique = (deleted_at IS NULL) и UNIQUE(email, email_unique) - живые получают TRUE, удалённые - ничего страшного из-за того же NULL != NULL. 2c) использовать MariaDB 10.2.x JSON / generated columns похожим способом. 3) Альтернатива - hard delete + архивная таблица users_archive (свобода схемы, но теряются связи через foreign key). 4) Альтернатива - анонимизировать email при удалении (email = "deleted_{$id}@example.com"), uniqueness сохраняется естественно и в MySQL, и в Postgres. Выбор зависит от: нужно ли восстанавливать аккаунт (тогда не аноним), есть ли GDPR/right-to-be-forgotten (тогда лучше hard delete), какая СУБД.',
                 'code_example' => '<?php
 // Postgres - partial index в миграции
 Schema::create("users", function (Blueprint $t) {
@@ -183,10 +183,15 @@ Schema::create("users", function (Blueprint $t) {
 DB::statement("CREATE UNIQUE INDEX users_email_active
                ON users (email) WHERE deleted_at IS NULL");
 
-// MySQL - составной UNIQUE; deleted_at NULL для живых
+// MySQL - составной UNIQUE с sentinel-значением вместо NULL для живых
+// (наивный UNIQUE(email, deleted_at) с deleted_at=NULL НЕ работает:
+//  NULL != NULL → MySQL пропустит двух живых с одним email)
 Schema::table("users", function (Blueprint $t) {
+    $t->timestamp("deleted_at")->nullable(false)->default("1970-01-01 00:00:00")->change();
     $t->unique(["email", "deleted_at"]);
 });
+// Модель: переопределить SoftDeletes так, чтобы trash ставил now(),
+// а "живой" статус = sentinel-дата, а не NULL.
 
 // Анонимизация при удалении (универсальный способ)
 class User extends Model {
