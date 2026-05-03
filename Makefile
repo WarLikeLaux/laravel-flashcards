@@ -154,11 +154,20 @@ reset: ## Полный сброс: clean + удалить .env и БД
 
 ##@ Export
 
+REPOMIX_HEADER := Это банк вопросов для подготовки к собеседованию PHP/Laravel-разработчика middle/senior уровня. Каждый вопрос лежит в поле 'question', эталонный ответ — в поле 'answer', опционально есть 'code_example'. Обсуждай вопросы по существу, как ведущие технического подкаста для разработчиков. Не комментируй структуру файла, формат хранения, PHP-массивы, сидеры или способ упаковки — это всё технические детали хранилища, а не предмет обсуждения.
+
 repomix: ## Перепаковать сидеры в repomix-<category>.md по 5 категориям (для NotebookLM)
 	for pair in php=Php oop=Oop laravel=Laravel database=Database system-design=SystemDesign; do
 	  out=$${pair%=*}
 	  src=$${pair#*=}
-	  echo "→ repomix-$$out.md ($$src + README.md)"
-	  npx -y repomix --include "README.md,database/seeders/Data/Categories/$$src/**/*.php" --style markdown -o repomix-$$out.md --no-security-check >/dev/null
+	  echo "→ repomix-$$out.md ($$src)"
+	  npx -y repomix \
+	    --include "database/seeders/Data/Categories/$$src/**/*.php" \
+	    --style markdown \
+	    --no-file-summary \
+	    --no-directory-structure \
+	    --header-text "$(REPOMIX_HEADER)" \
+	    -o repomix-$$out.md \
+	    --no-security-check >/dev/null
 	done
 	ls -lh repomix-*.md
