@@ -10,14 +10,14 @@ class Exceptions
             [
                 'category' => 'PHP',
                 'question' => 'Как работают исключения в PHP?',
-                'answer' => 'Исключение - объект, выбрасываемый через throw. Перехватывается через try/catch. finally выполняется всегда (даже при return/throw). Иерархия: Throwable - корень, его наследуют Exception (можно ловить) и Error (внутренние ошибки PHP). Можно ловить несколько типов через | (PHP 8). С PHP 8 throw - выражение, можно использовать в ?: и ??.',
+                'answer' => 'Исключение - объект, выбрасываемый через throw. Перехватывается через try/catch. finally выполняется всегда (даже при return/throw). Иерархия: Throwable - корень, его наследуют Exception (можно ловить) и Error (внутренние ошибки PHP). Можно ловить несколько типов через | (multi-catch, PHP 7.1+). С PHP 8 throw - выражение, можно использовать в ?: и ??.',
                 'code_example' => '<?php
 try {
     if ($x < 0) {
         throw new InvalidArgumentException("отрицательное");
     }
 } catch (InvalidArgumentException | TypeError $e) {
-    // multi-catch (PHP 8)
+    // multi-catch (PHP 7.1+)
     echo $e->getMessage();
 } catch (Exception $e) {
     echo "Общая ошибка: " . $e->getMessage();

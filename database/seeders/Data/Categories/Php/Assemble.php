@@ -10,7 +10,7 @@ class Assemble
             [
                 'category' => 'PHP',
                 'question' => 'Собери цепочку Collection: уникальные emails из активных юзеров.',
-                'answer' => 'Coллекции - fluent. filter, pluck, unique, values образуют ленивую цепочку (на eager при collect).',
+                'answer' => 'Laravel Collection - fluent-обёртка над массивом. collect() возвращает eager-коллекцию: каждый шаг (filter, pluck, unique, values) сразу материализует промежуточный массив. Для ленивой обработки больших наборов нужен LazyCollection (LazyCollection::make() / Model::cursor() / ->lazy()). Здесь данные уже в памяти, поэтому eager-цепочка уместна.',
                 'assemble_chunks' => [
                     'collect($users)',
                     '->',
@@ -30,7 +30,7 @@ class Assemble
             [
                 'category' => 'PHP',
                 'question' => 'Собери try/catch для нескольких типов исключений.',
-                'answer' => 'Multi-catch (PHP 8.0): TypeA|TypeB $e - общий блок для нескольких типов.',
+                'answer' => 'Multi-catch (PHP 7.1+): TypeA|TypeB $e - общий блок для нескольких типов.',
                 'assemble_chunks' => [
                     'try {',
                     '    $client->send($request);',

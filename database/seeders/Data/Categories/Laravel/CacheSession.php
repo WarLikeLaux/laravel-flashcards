@@ -13,7 +13,7 @@ class CacheSession
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Cache в Laravel и какие драйверы существуют?',
-                'answer' => 'Cache - это система кеширования данных для ускорения. Драйверы: file (по умолчанию), database, redis, memcached, array (для тестов), dynamodb. Конфигурируется в config/cache.php. Используется через Cache фасад.',
+                'answer' => 'Cache - это система кеширования данных для ускорения. Драйверы: database, file, redis, memcached, array (для тестов), dynamodb, null. Дефолт зависит от версии и .env: в Laravel 11 skeleton по умолчанию database (CACHE_STORE=database), в более старых версиях был file. Конфигурируется в config/cache.php. Используется через Cache фасад.',
                 'code_example' => 'Cache::put(\'key\', \'value\', 3600);
 $value = Cache::get(\'key\', \'default\');
 Cache::has(\'key\');
@@ -72,7 +72,7 @@ Cache::lock(\'foo\', 10)->block(5, function () {
             [
                 'category' => 'Laravel',
                 'question' => 'Как работает session в Laravel?',
-                'answer' => 'Сессия - это хранилище данных пользователя между запросами. Драйверы: file (по умолчанию), cookie, database, redis, memcached, array. Доступ через session() helper, $request->session() или Session фасад. Защищена от session fixation, регенерация ID при логине.',
+                'answer' => 'Сессия - это хранилище данных пользователя между запросами. Драйверы: database, file, cookie, redis, memcached, array, dynamodb. Дефолт зависит от версии и .env: в Laravel 11 skeleton по умолчанию database (SESSION_DRIVER=database), в более старых версиях был file. Доступ через session() helper, $request->session() или Session фасад. Защищена от session fixation, регенерация ID при логине.',
                 'code_example' => 'session([\'key\' => \'value\']);
 $value = session(\'key\', \'default\');
 session()->forget(\'key\');
