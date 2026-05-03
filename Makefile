@@ -15,7 +15,8 @@ SQLITE_DB  := database/database.sqlite
         lint lint-check format format-check types-check \
         pint pint-check \
         ci optimize cache-clear route-list tinker storage-link \
-        update upgrade fresh-install clean reset
+        update upgrade fresh-install clean reset \
+        repomix
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make \033[36m<target>\033[0m\n\nTargets:\n"} \
@@ -150,3 +151,14 @@ clean: ## Удалить vendor, node_modules, build артефакты
 reset: ## Полный сброс: clean + удалить .env и БД
 	rm -rf vendor node_modules public/build public/hot bootstrap/cache/*.php
 	rm -f .env $(SQLITE_DB)
+
+##@ Export
+
+repomix: ## Перепаковать сидеры в repomix-<category>.md по 5 категориям (для NotebookLM)
+	for pair in php=Php oop=Oop laravel=Laravel database=Database system-design=SystemDesign; do
+	  out=$${pair%=*}
+	  src=$${pair#*=}
+	  echo "→ repomix-$$out.md ($$src + README.md)"
+	  npx -y repomix --include "README.md,database/seeders/Data/Categories/$$src/**/*.php" --style markdown -o repomix-$$out.md --no-security-check >/dev/null
+	done
+	ls -lh repomix-*.md
