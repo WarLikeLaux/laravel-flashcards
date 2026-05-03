@@ -51,7 +51,16 @@ function getUser(int $id): User {
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое write-through стратегия кэша?',
-                'answer' => 'Write-through - запись идёт сначала в кэш, потом синхронно в БД. Чтение - всегда из кэша. Плюсы: кэш всегда консистентен с БД, нет stale data. Минусы: запись медленнее (две операции), кэш заполняется только при записи. Подходит когда чтение во много раз чаще записи и важна консистентность.',
+                'answer' => 'Write-through - запись идёт сначала в кэш, потом синхронно в БД (за это отвечает либо приложение, либо сам кэш как прослойка перед БД). Чтение - всегда из кэша, при промахе кэш сам загружает из БД (часто комбинируется с read-through). Плюсы: кэш всегда консистентен с БД, нет stale data. Минусы: запись медленнее (две операции), кэш заполняется только тем, что записывали - редко читаемые данные тоже там лежат. Подходит когда чтение во много раз чаще записи и важна консистентность.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 3,
+                'topic' => 'system_design.caching',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'Что такое read-through стратегия кэша?',
+                'answer' => 'Read-through - кэш сам читает из БД при промахе, приложение всегда обращается только к кэшу. В отличие от cache-aside, где промахом управляет код приложения, здесь логика загрузки спрятана внутрь кэш-провайдера/библиотеки. Плюсы: код приложения проще, единая точка работы с данными. Минусы: первый запрос всегда медленный (cache miss), нужна готовая интеграция кэша с источником. Часто комбинируется с write-through. Пример: Hibernate 2nd-level cache, Ehcache CacheLoader, AWS DAX перед DynamoDB.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,
@@ -88,8 +97,8 @@ maxmemory-policy allkeys-lru',
             ],
             [
                 'category' => 'Архитектура систем',
-                'question' => 'Что такое cache stampede и как с ним бороться?',
-                'answer' => 'Cache stampede (thundering herd) - когда популярный ключ истекает в кэше и тысячи запросов одновременно начинают перестраивать его, забивая БД. Простыми словами: магазин закрылся на учёт - все клиенты ломятся одновременно. Решения: 1) atomic lock на пересборку (только один запрос строит, остальные ждут), 2) probabilistic early expiration (случайно обновляем чуть раньше TTL), 3) stale-while-revalidate.',
+                'question' => 'Что такое cache stampede (dogpile) и как с ним бороться?',
+                'answer' => 'Cache stampede (он же dogpile, thundering herd) - когда популярный ключ истекает в кэше и тысячи запросов одновременно начинают перестраивать его, забивая БД. Простыми словами: магазин закрылся на учёт - все клиенты ломятся одновременно. Решения: 1) atomic lock на пересборку (SET NX + блокировка - только один запрос строит, остальные ждут или отдают stale), 2) probabilistic early expiration (XFetch: с растущей вероятностью при подходе к TTL один воркер заранее перестраивает), 3) stale-while-revalidate (отдаём старое значение, пока в фоне обновляется новое), 4) bgrewrite через очередь по cron - данные никогда не "истекают" для пользователя.',
                 'code_example' => '<?php
 $value = Cache::lock("rebuild:$key", 10)->block(5, function () use ($key) {
     return Cache::remember($key, 300, fn() => expensiveQuery());
@@ -105,6 +114,15 @@ $value = Cache::lock("rebuild:$key", 10)->block(5, function () use ($key) {
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 2,
+                'topic' => 'system_design.caching',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'В чём разница между Redis и Memcached?',
+                'answer' => 'Memcached - чистый in-memory key/value кэш: только строки/блобы, multi-threaded, очень простой и предсказуемый, slab-аллокатор, нет персистентности и репликации (в open-source). Redis - data structure server: строки, hashes, lists, sets, sorted sets, streams, bitmap, HyperLogLog, geo; есть Lua-скрипты, pub/sub, транзакции, persistence (RDB/AOF), репликация и Cluster, single-threaded I/O loop (Redis 6+ имеет multi-threaded I/O). Когда что: Memcached - когда нужен только LRU-кэш и шардирование клиентом; Redis - когда нужны структуры (rate limit на sorted set, очереди, leaderboards), persistence или replication.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 3,
                 'topic' => 'system_design.caching',
             ],
             [

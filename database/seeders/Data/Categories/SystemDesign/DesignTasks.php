@@ -15,11 +15,16 @@ class DesignTasks
                 'question' => 'Как спроектировать rate limiter?',
                 'answer' => 'Алгоритмы: 1) Fixed window (счётчик за минуту, прост, но всплеск на границах окон), 2) Sliding window log (хранит timestamp каждого запроса, точно но дорого по памяти), 3) Sliding window counter (компромисс), 4) Token bucket (поддерживает всплески, классика), 5) Leaky bucket. Хранилище: Redis с атомарным INCR/EXPIRE и Lua-скриптом. Ключ: user_id или IP. При превышении - 429 Too Many Requests + Retry-After + X-RateLimit-* headers.',
                 'code_example' => '-- Redis Lua: token bucket
-local tokens = tonumber(redis.call("HGET", KEYS[1], "t") or ARGV[1])
-local last = tonumber(redis.call("HGET", KEYS[1], "l") or ARGV[3])
-tokens = math.min(ARGV[1], tokens + (ARGV[3]-last)*ARGV[2])
+-- KEYS[1]=bucket key, ARGV: capacity, refill_rate(per ms), now_ms, ttl
+local capacity = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local tokens = tonumber(redis.call("HGET", KEYS[1], "t") or capacity)
+local last = tonumber(redis.call("HGET", KEYS[1], "l") or now)
+tokens = math.min(capacity, tokens + (now - last) * rate)
 if tokens < 1 then return 0 end
-redis.call("HMSET", KEYS[1], "t", tokens-1, "l", ARGV[3])
+redis.call("HMSET", KEYS[1], "t", tokens - 1, "l", now)
+redis.call("EXPIRE", KEYS[1], ARGV[4])
 return 1',
                 'code_language' => 'bash',
                 'difficulty' => 5,
@@ -133,12 +138,16 @@ return 1',
                 'category' => 'Архитектура систем',
                 'question' => 'Спроектируйте rate limiter на 1000 RPS на пользователя. Какие алгоритмы и хранилища выберете?',
                 'answer' => 'Sliding window log - точный, но дорогой по памяти. Sliding window counter - компромисс точности и памяти. Token bucket - поддерживает всплески, классика для API. Хранилище - Redis с атомарными INCR/EXPIRE и Lua-скриптом для атомарности проверки и обновления. Для распределённого ratelimit с low-latency - локальный counter с периодической синхронизацией (sloppy counter). Ключи: user-id или api-key, TTL = окно. Ответ: 429 + Retry-After + X-RateLimit-Remaining headers.',
-                'code_example' => '-- redis Lua: token bucket
-local tokens = tonumber(redis.call("HGET", KEYS[1], "t") or ARGV[1])
-local last = tonumber(redis.call("HGET", KEYS[1], "l") or ARGV[3])
-tokens = math.min(ARGV[1], tokens + (ARGV[3]-last)*ARGV[2])
+                'code_example' => '-- redis Lua: token bucket (atomic)
+local capacity = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local tokens = tonumber(redis.call("HGET", KEYS[1], "t") or capacity)
+local last = tonumber(redis.call("HGET", KEYS[1], "l") or now)
+tokens = math.min(capacity, tokens + (now - last) * rate)
 if tokens < 1 then return 0 end
-redis.call("HMSET", KEYS[1], "t", tokens-1, "l", ARGV[3])
+redis.call("HMSET", KEYS[1], "t", tokens - 1, "l", now)
+redis.call("EXPIRE", KEYS[1], 3600)
 return 1',
                 'code_language' => 'bash',
                 'difficulty' => 5,

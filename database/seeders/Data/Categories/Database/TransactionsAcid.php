@@ -82,9 +82,35 @@ SQL,
             [
                 'category' => 'Базы данных',
                 'question' => 'Какие бывают уровни изоляции транзакций?',
-                'answer' => '4 стандартных уровня по SQL: READ UNCOMMITTED (видны грязные данные других транзакций), READ COMMITTED (видны только закоммиченные), REPEATABLE READ (одни и те же чтения дают одинаковый результат), SERIALIZABLE (полная изоляция, как будто транзакции выполняются последовательно). Чем выше - тем меньше аномалий, но больше блокировок.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => '4 стандартных уровня по SQL и аномалии, которые они допускают: READ UNCOMMITTED - dirty/non-repeatable/phantom; READ COMMITTED - non-repeatable/phantom; REPEATABLE READ - phantom (по стандарту); SERIALIZABLE - ничего. Особенности: PostgreSQL не реализует READ UNCOMMITTED (минимум READ COMMITTED), а в его REPEATABLE READ (snapshot isolation) фантомы тоже не возникают, но возможен write skew. InnoDB на REPEATABLE READ блокирует фантомы через gap-locks. SERIALIZABLE в PG реализован через SSI (Serializable Snapshot Isolation) и может откатывать транзакции с ошибкой serialization_failure.',
+                'code_example' => <<<'SQL'
+-- Таблица аномалий по стандарту SQL
+-- Уровень           | Dirty | NonRepeat | Phantom
+-- READ UNCOMMITTED  |   +   |    +      |    +
+-- READ COMMITTED    |   -   |    +      |    +
+-- REPEATABLE READ   |   -   |    -      |    +
+-- SERIALIZABLE      |   -   |    -      |    -
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SQL,
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.transactions_acid',
+            ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Что такое Lost Update (потерянное обновление)?',
+                'answer' => 'Lost Update - аномалия, когда две транзакции читают одно значение, обе модифицируют и пишут, и обновление одной перезаписывает другое - изменение "теряется". Пример: T1 и T2 читают balance=100, T1 пишет 90 (-10), T2 пишет 80 (-20), вместо ожидаемых 70. Защита: SERIALIZABLE; SELECT FOR UPDATE перед UPDATE; атомарный UPDATE с выражением (UPDATE accounts SET balance = balance - 10); оптимистическая блокировка через version-столбец.',
+                'code_example' => <<<'SQL'
+-- Атомарное обновление - безопасно
+UPDATE accounts SET balance = balance - 10 WHERE id = 1;
+
+-- Оптимистическая блокировка
+UPDATE products
+SET price = 99, version = version + 1
+WHERE id = 1 AND version = 5;
+-- если 0 строк изменено - кто-то опередил, ретраим
+SQL,
+                'code_language' => 'sql',
                 'difficulty' => 4,
                 'topic' => 'database.transactions_acid',
             ],
@@ -136,7 +162,7 @@ SQL,
             [
                 'category' => 'Базы данных',
                 'question' => 'Чем отличаются shared lock и exclusive lock?',
-                'answer' => 'Shared (S) - "читать можно, писать нельзя". Несколько транзакций могут одновременно держать S на одной строке. Exclusive (X) - "никто другой не может ни читать, ни писать". Захватывается при UPDATE/DELETE. S и X несовместимы. Это базовая модель совместимости блокировок.',
+                'answer' => 'Shared (S) - "читать можно, писать нельзя". Несколько транзакций могут одновременно держать S на одной строке. Exclusive (X) - блокирует другие S и X на этом ресурсе, захватывается при UPDATE/DELETE. Важный нюанс: в PostgreSQL и других MVCC-СУБД row-level X-lock НЕ блокирует обычные SELECT (читатели видят прежний снапшот) - блокируются только UPDATE/DELETE/SELECT FOR UPDATE/SHARE. S и X между собой несовместимы. Это базовая модель совместимости блокировок.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,

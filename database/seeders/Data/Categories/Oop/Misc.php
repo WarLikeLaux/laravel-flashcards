@@ -64,7 +64,7 @@ echo $c(\'foo\'); // __invoke',
                 'topic' => 'oop.misc',
                 'difficulty' => 3,
                 'question' => 'Что такое late static binding (позднее статическое связывание)?',
-                'answer' => 'Late Static Binding (LSB) - механизм PHP, позволяющий ссылаться на фактический класс, на котором был вызван статический метод (а не на класс, где он объявлен). Реализуется через ключевое слово static. self ссылается на класс, где написан код (раннее связывание), static - на класс, по которому идёт вызов. LSB важен для фабричных методов и Active Record.',
+                'answer' => 'Late Static Binding (LSB) - механизм PHP, позволяющий ссылаться на фактический класс, по которому идёт вызов (а не на класс, где код написан). Реализуется через ключевое слово static. self ссылается на класс, где написан код (раннее связывание), static - на класс, на котором был сделан вызов (позднее связывание). LSB работает и для статических, и для нестатических методов (через $this->...). Важен для фабричных методов, Active Record и любых "наследуемых" фабрик. С PHP 8.0 есть возвращаемый тип static - гарантирует, что фактический тип совпадёт с классом-наследником.',
                 'code_example' => '<?php
 class Model
 {
@@ -209,7 +209,7 @@ class DogShelter extends Shelter
                 'topic' => 'oop.misc',
                 'difficulty' => 3,
                 'question' => 'Что такое перегрузка методов (method overloading) и есть ли она в PHP?',
-                'answer' => 'Перегрузка методов - возможность объявить в одном классе несколько методов с одинаковым именем, но разными сигнатурами (например, разное число параметров). В PHP перегрузки в классическом смысле НЕТ - нельзя объявить два метода с одним именем. Имитировать можно: 1) Через переменное число аргументов и func_get_args. 2) Через типизированные параметры с union types. 3) Через __call. 4) Через именованные аргументы (PHP 8). Часто роль перегрузки играют именованные конструкторы (static-фабрики).',
+                'answer' => 'Перегрузка методов - возможность объявить в одном классе несколько методов с одинаковым именем, но разными сигнатурами (например, разное число параметров). В PHP перегрузки в классическом смысле НЕТ - нельзя объявить два метода с одним именем (даже с разными типами параметров). Имитировать можно: 1) Через variadic параметры (...$args) и проверку типов внутри. 2) Через union types и match по типу. 3) Через магический __call. 4) Через именованные аргументы (PHP 8.0) с дефолтами. На практике лучшее решение - именованные конструкторы (static-фабрики): fromX(), fromY() вместо нескольких __construct.',
                 'code_example' => '<?php
 class Money
 {
@@ -233,23 +233,54 @@ class Money
                 'difficulty' => 4,
                 'question' => 'Что такое Open Recursion и проблема fragile base class?',
                 'answer' => 'Open recursion - когда метод родительского класса вызывает другой метод того же объекта (через $this), и потомок может переопределить этот метод, изменив поведение базового. Это даёт гибкость, но порождает проблему fragile base class (хрупкий базовый класс): изменения в родителе могут сломать потомков, потому что они зависят от внутренних вызовов методов. Снижает инкапсуляцию. Решения: помечать "хук-методы" final или выносить через композицию (Strategy/Template Method с явными шагами).',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+class Counter
+{
+    private int $count = 0;
+
+    public function add(int $n): void
+    {
+        $this->count += $n;
+    }
+
+    // open recursion: addMany использует add через $this
+    public function addMany(array $nums): void
+    {
+        foreach ($nums as $n) {
+            $this->add($n);
+        }
+    }
+}
+
+class LoggingCounter extends Counter
+{
+    public function add(int $n): void
+    {
+        error_log("add($n)");
+        parent::add($n);
+    }
+    // addMany унаследован, но уже вызывает наш add()!
+    // Если в родителе изменят addMany на оптимизированный вариант
+    // (sum + один add), логи начнут сыпаться по-другому - потомок сломан.
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
                 'topic' => 'oop.misc',
                 'difficulty' => 3,
                 'question' => 'Что такое typed properties и какие есть типы в PHP?',
-                'answer' => 'С PHP 7.4 свойства класса можно типизировать. Поддерживаются: скаляры (int, float, string, bool), массивы (array), объекты (классы и интерфейсы), iterable, callable (только для параметров), nullable (?string), self/parent/static, union types (int|string, PHP 8), intersection types (Foo&Bar, PHP 8.1), never (PHP 8.1, только возвращаемый), mixed (PHP 8). Типизированное свойство по умолчанию uninitialized - доступ к нему до инициализации бросит Error.',
+                'answer' => 'С PHP 7.4 свойства класса можно типизировать. Поддерживаются: скаляры (int, float, string, bool), массивы (array), объекты (классы и интерфейсы), iterable, nullable (?string), self/parent/static (только возвращаемый), union types (int|string, PHP 8.0), mixed (PHP 8.0), intersection types (Foo&Bar, PHP 8.1), never (PHP 8.1, только возвращаемый), DNF-типы ((Foo&Bar)|null, PHP 8.2), true/false/null как самостоятельные типы (PHP 8.2). callable нельзя использовать для свойств (только для параметров/возвращаемых). Типизированное свойство без значения по умолчанию находится в состоянии uninitialized - чтение до инициализации бросит Error.',
                 'code_example' => '<?php
 class Profile
 {
-    public string $name;            // обязательно инициализировать
-    public ?int $age = null;        // nullable со значением по умолчанию
+    public string $name;                 // обязательно инициализировать
+    public ?int $age = null;             // nullable со значением по умолчанию
     public array $tags = [];
-    public int|string $id;          // union
-    public Countable&Iterator $col; // intersection (PHP 8.1)
+    public int|string $id;               // union (PHP 8.0)
+    public \Countable&\Iterator $col;    // intersection (PHP 8.1)
+    public (\Countable&\Iterator)|null $maybeCol = null; // DNF (PHP 8.2)
+    public readonly string $hash;        // readonly (PHP 8.1)
 }',
                 'code_language' => 'php',
             ],
@@ -318,8 +349,25 @@ class Service
                 'difficulty' => 4,
                 'question' => 'Что такое cohesion на уровне модулей и классов?',
                 'answer' => 'Cohesion (сплочённость) показывает, насколько элементы внутри одного модуля связаны общей целью. Высокая cohesion - класс делает одно дело и делает его хорошо. Низкая - класс мешает разнородные функции. Виды (от плохой к хорошей): coincidental (случайная), logical (функции одной категории), temporal (вызываются вместе), procedural (выполняются последовательно), communicational (работают с одними данными), sequential (выход одного - вход другого), functional (всё для одной задачи) - идеал. Высокая cohesion - следствие SRP.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Низкая cohesion: разнородные методы в одном классе
+class Utility
+{
+    public function calculateTax(Money $m): Money {}
+    public function sendEmail(string $to, string $body): void {}
+    public function parseCsv(string $file): array {}
+    public function hashPassword(string $pwd): string {}
+}
+
+// Высокая cohesion: класс сосредоточен на одной задаче
+class TaxCalculator
+{
+    public function __construct(private TaxRateProvider $rates) {}
+    public function calculate(Money $m, Country $c): Money {}
+    public function applyDiscount(Money $tax, Discount $d): Money {}
+    public function totalWithTax(Money $base, Country $c): Money {}
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
@@ -327,8 +375,36 @@ class Service
                 'difficulty' => 4,
                 'question' => 'Что такое coupling на уровне модулей и классов?',
                 'answer' => 'Coupling (зацепление, связанность) показывает, насколько модули зависят друг от друга. Виды от плохого к хорошему: content (один модуль лезет во внутренности другого), common (общие глобальные данные), control (один управляет логикой другого через флаги), stamp (передают сложные структуры, но используют только часть), data (передают только нужные параметры), message coupling (взаимодействие только через интерфейсы) - идеал. Низкое coupling - результат DIP, ISP, инкапсуляции и Law of Demeter.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Control coupling: флаг управляет логикой чужого модуля
+class Reporter
+{
+    public function build(array $data, bool $asPdf): string
+    {
+        if ($asPdf) return $this->toPdf($data);
+        return $this->toHtml($data);
+    }
+}
+
+// Stamp coupling: передаём весь User, хотя нужен только email
+class Mailer
+{
+    public function notify(User $user): void
+    {
+        mail($user->email, \'Hi\', \'...\'); // используем одно поле из десяти
+    }
+}
+
+// Message coupling (хорошо): зависим от узкого интерфейса
+interface EmailRecipient { public function email(): string; }
+class Mailer2
+{
+    public function notify(EmailRecipient $r): void
+    {
+        mail($r->email(), \'Hi\', \'...\');
+    }
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
@@ -392,9 +468,31 @@ class Human implements Workable, Eatable {}',
                 'topic' => 'oop.misc',
                 'difficulty' => 3,
                 'question' => 'Чем Strategy отличается от State и приведите кейс для каждого.',
-                'answer' => 'Strategy инкапсулирует взаимозаменяемые алгоритмы, выбирается клиентом и обычно не меняется на лету: например, разные алгоритмы расчёта налога. State моделирует поведение объекта в зависимости от внутреннего состояния и переключает само себя: Order переходит pending → paid → shipped, и каждое состояние имеет свой набор разрешённых действий. Структурно паттерны похожи (композиция + полиморфизм), различие - в семантике переходов: в Strategy объекты-стратегии stateless, в State объект-состояние сам выбирает следующее.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Strategy инкапсулирует взаимозаменяемые алгоритмы, выбирается клиентом и обычно не меняется на лету: например, разные алгоритмы расчёта налога. State моделирует поведение объекта в зависимости от внутреннего состояния и переключает само себя: Order переходит pending → paid → shipped, и каждое состояние имеет свой набор разрешённых действий. Структурно паттерны похожи (композиция + полиморфизм), различие - в семантике переходов: в Strategy объекты-стратегии stateless и не знают друг о друге, в State состояние само инициирует переход к следующему состоянию.',
+                'code_example' => '<?php
+// Strategy: клиент выбирает алгоритм, состояния не меняются
+interface TaxStrategy { public function calc(Money $m): Money; }
+class UsTax implements TaxStrategy { /* ... */ }
+class EuVat implements TaxStrategy { /* ... */ }
+
+class PriceCalculator
+{
+    public function __construct(private TaxStrategy $tax) {}
+}
+
+// State: объект сам переходит между состояниями
+interface OrderState
+{
+    public function pay(Order $o): OrderState; // возвращает следующее
+}
+class PendingState implements OrderState
+{
+    public function pay(Order $o): OrderState
+    {
+        return new PaidState(); // переход инициирован самим состоянием
+    }
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
@@ -434,9 +532,34 @@ final class Order { // Root
                 'topic' => 'oop.misc',
                 'difficulty' => 4,
                 'question' => 'Чем отличается Factory Method от Abstract Factory?',
-                'answer' => 'Factory Method - метод (часто абстрактный) в классе-создателе, возвращающий продукт; используется для одного семейства, подклассы переопределяют метод. Abstract Factory - объект-фабрика, создающий несколько связанных продуктов одного "семейства" (UI для Material/Cupertino: Button + Checkbox + Menu). FM решает "какой класс инстанцировать", AF - "какое семейство объектов согласованно создать".',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Factory Method - метод (часто абстрактный) в классе-создателе, возвращающий один продукт; подклассы создателя переопределяют метод и решают, какой конкретный класс инстанцировать. Abstract Factory - объект-фабрика, создающий несколько связанных продуктов одного "семейства" (UI для Material/Cupertino: Button + Checkbox + Menu). FM решает "какой класс инстанцировать" (одиночный продукт через наследование), AF - "какое семейство объектов согласованно создать" (набор продуктов через композицию).',
+                'code_example' => '<?php
+// Factory Method: один продукт, переопределение в наследниках
+abstract class Dialog
+{
+    abstract protected function createButton(): Button; // factory method
+
+    public function render(): void
+    {
+        $btn = $this->createButton();
+        $btn->onClick();
+    }
+}
+class WindowsDialog extends Dialog
+{
+    protected function createButton(): Button { return new WindowsButton(); }
+}
+
+// Abstract Factory: семейство связанных продуктов
+interface GuiKit
+{
+    public function button(): Button;
+    public function checkbox(): Checkbox;
+    public function menu(): Menu;
+}
+class MaterialKit implements GuiKit { /* возвращает Material* */ }
+class CupertinoKit implements GuiKit { /* возвращает Cupertino* */ }',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
@@ -515,8 +638,36 @@ class Order {
                 'difficulty' => 4,
                 'question' => 'Что такое CQRS и какие проблемы он решает?',
                 'answer' => 'Command Query Responsibility Segregation - разделение модели чтения и записи. Команды меняют состояние, не возвращают данных; запросы читают, не меняют. Преимущества: разные модели позволяют оптимизировать чтение (денормализованные read-models, кэш) отдельно от записи (агрегаты, инварианты). Часто сочетается с event sourcing. Минус - сложность и eventual consistency между read- и write-моделями; для типового CRUD-приложения это overkill.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Write side: работа через агрегат с инвариантами
+final class PlaceOrderCommand
+{
+    public function __construct(
+        public readonly string $userId,
+        public readonly array $items,
+    ) {}
+}
+class PlaceOrderHandler
+{
+    public function __construct(private OrderRepository $orders) {}
+    public function handle(PlaceOrderCommand $cmd): void
+    {
+        $order = Order::place($cmd->userId, $cmd->items); // инварианты в агрегате
+        $this->orders->save($order);
+    }
+}
+
+// Read side: денормализованная выборка для UI
+class OrderListView
+{
+    public function __construct(private \PDO $pdo) {}
+    public function forUser(string $userId): array
+    {
+        // прямой SQL по read-таблице, без загрузки агрегата
+        return $this->pdo->query("SELECT id, total, status FROM order_list WHERE user_id = ?")->fetchAll();
+    }
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',

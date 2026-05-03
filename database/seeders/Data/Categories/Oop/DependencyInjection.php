@@ -45,8 +45,29 @@ $service = new OrderService(
                 'difficulty' => 3,
                 'question' => 'В чём разница между DI и DIP?',
                 'answer' => 'Это разные понятия. DIP (Dependency Inversion Principle) - принцип проектирования: зависим от абстракций, а не от конкретных классов. DI (Dependency Injection) - техника, способ передавать зависимости в объект (через конструктор, сеттер). Можно соблюдать DIP без DI (например, создавая абстракции вручную). Можно использовать DI без соблюдения DIP (передавать конкретные классы). На практике DI - один из главных способов реализации DIP.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// DI без DIP: инъекция есть, но зависим от конкретного класса
+class OrderServiceA
+{
+    public function __construct(private MysqlOrderRepository $repo) {}
+}
+
+// DIP без DI: зависим от абстракции, но создаём её внутри
+class OrderServiceB
+{
+    private OrderRepository $repo;
+    public function __construct()
+    {
+        $this->repo = RepositoryFactory::make(); // не DI, но абстракция
+    }
+}
+
+// DIP + DI (идеал): и абстракция, и инъекция
+class OrderService
+{
+    public function __construct(private OrderRepository $repo) {}
+}',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',

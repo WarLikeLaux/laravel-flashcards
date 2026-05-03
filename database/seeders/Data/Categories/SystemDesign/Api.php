@@ -27,7 +27,7 @@ DELETE /api/users/42    - удалить',
             [
                 'category' => 'Архитектура систем',
                 'question' => 'В чём разница между REST, GraphQL и gRPC?',
-                'answer' => 'REST - HTTP + JSON, ресурсо-ориентированный, клиент берёт всё что отдаёт endpoint. GraphQL - один endpoint, клиент в запросе указывает какие именно поля нужны (нет over/under-fetching), есть схема и типы. gRPC - HTTP/2 + Protocol Buffers, бинарный, очень быстрый, контракт через .proto файлы, поддерживает streaming. REST - универсален, GraphQL - для сложных UI с разными нуждами, gRPC - для межсервисного общения с низкой задержкой.',
+                'answer' => 'REST - HTTP + JSON, ресурсо-ориентированный, клиент берёт всё что отдаёт endpoint, кэшируется штатно через HTTP-кэш. GraphQL - один POST-endpoint, клиент в запросе указывает какие поля нужны (нет over/under-fetching), сильная типизация через SDL, но HTTP-кэш не работает (всё POST). gRPC - HTTP/2 + Protocol Buffers, бинарный, поддерживает 4 типа стриминга (unary, server-, client-, bidirectional), контракт через .proto, кодогенерация на 11+ языков. Выбор: REST - публичный API и CRUD, GraphQL - богатый UI с разными view, gRPC - межсервисное общение с низкой задержкой и стримингом.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,
@@ -49,7 +49,7 @@ DELETE /api/users/42    - удалить',
     }
   }
 }',
-                'code_language' => 'bash',
+                'code_language' => 'json',
                 'difficulty' => 4,
                 'topic' => 'system_design.api',
             ],
@@ -70,16 +70,28 @@ message UserReply { string name = 1; string email = 2; }',
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Какие способы версионирования API существуют?',
-                'answer' => '1) URI: /api/v1/users, /api/v2/users - просто, видно сразу. 2) Header: Accept: application/vnd.myapi.v2+json - чище URL, но скрытнее. 3) Query parameter: /api/users?version=2 - не каноничен. 4) Subdomain: v1.api.example.com - инфраструктурно сложнее. Чаще используют URI versioning - просто и понятно. Главное - не ломать старые версии резко, давать время на миграцию.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => '1) URI: /api/v1/users, /api/v2/users - просто, видно сразу, легко кэшировать; нарушает REST-идею, что URL = ресурс (Roy Fielding не любит). 2) Header: Accept: application/vnd.myapi.v2+json (media type versioning) - чище URL, но скрытнее, сложнее тестировать в браузере. 3) Custom header: API-Version: 2. 4) Query: /api/users?version=2 - не каноничен, плохо кэшируется. 5) Subdomain: v1.api.example.com. На практике чаще URI - просто и читаемо. Стратегия: deprecation в headers (Sunset, Deprecation), 6-12 мес поддержки старой версии, semver: ломающие изменения - major.',
+                'code_example' => 'GET /api/v2/users HTTP/1.1
+Host: api.example.com
+Accept: application/json
+
+# или через media type
+GET /api/users HTTP/1.1
+Accept: application/vnd.myapi.v2+json
+
+# ответ для устаревшей версии
+HTTP/1.1 200 OK
+Deprecation: true
+Sunset: Sat, 31 Dec 2026 23:59:59 GMT
+Link: </api/v3/users>; rel="successor-version"',
+                'code_language' => 'bash',
                 'difficulty' => 3,
                 'topic' => 'system_design.api',
             ],
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Какие HTTP методы идемпотентны?',
-                'answer' => 'Идемпотентные: GET, HEAD, PUT, DELETE, OPTIONS - повторный вызов даёт тот же результат. Не идемпотентен: POST - каждый вызов создаёт новый ресурс. PATCH формально не идемпотентен, но может быть таким при правильной реализации. Безопасные (не меняют состояние): GET, HEAD, OPTIONS. Идемпотентность важна для retry-логики - можно безопасно повторять идемпотентные запросы при таймауте.',
+                'answer' => 'Идемпотентные по RFC 9110: GET, HEAD, PUT, DELETE, OPTIONS, TRACE - повторный вызов даёт тот же эффект на сервере, что и один. Не идемпотентен: POST - каждый вызов создаёт новый ресурс. PATCH формально не идемпотентен, но может быть таким при правильной реализации (например, замена поля). Безопасные (read-only, не меняют состояние): GET, HEAD, OPTIONS, TRACE. Идемпотентность важна для retry: при таймауте/502 можно безопасно повторить запрос; для POST используют Idempotency-Key.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 3,
@@ -100,6 +112,22 @@ message UserReply { string name = 1; string email = 2; }',
                 'answer' => 'WebSocket - протокол двунаправленной связи между клиентом и сервером поверх одного TCP-соединения. Простыми словами: телефонный разговор вместо отправки писем (HTTP). После handshake канал остаётся открытым, обе стороны могут слать сообщения в любой момент. Используется для чатов, real-time уведомлений, онлайн-игр, торговых платформ, совместного редактирования. В Laravel - Reverb, Pusher, Soketi.',
                 'code_example' => null,
                 'code_language' => null,
+                'difficulty' => 3,
+                'topic' => 'system_design.api',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'В чём разница между offset и cursor пагинацией?',
+                'answer' => 'Offset (LIMIT N OFFSET M) - просто, но при больших M база сканирует и отбрасывает M строк (медленно на 100k+), и при вставке новых записей возможны дубли/пропуски между страницами. Cursor (keyset) пагинация - используется WHERE id > :last_id ORDER BY id LIMIT N, всегда O(log N) по индексу, стабильна при вставках. Минус cursor: нельзя прыгнуть на N-ю страницу, только next/prev. Вывод: offset для админки с малыми объёмами и нумерацией, cursor для бесконечных лент, API и больших таблиц.',
+                'code_example' => '# offset (плохо для больших страниц)
+GET /api/posts?page=1000&per_page=20
+SELECT * FROM posts ORDER BY id DESC LIMIT 20 OFFSET 19980;
+
+# cursor (быстро, стабильно)
+GET /api/posts?after=eyJpZCI6MTIzNDV9&limit=20
+SELECT * FROM posts WHERE id < 12345 ORDER BY id DESC LIMIT 20;
+# ответ: { data: [...], next_cursor: "eyJpZCI6MTIzMjV9" }',
+                'code_language' => 'bash',
                 'difficulty' => 3,
                 'topic' => 'system_design.api',
             ],

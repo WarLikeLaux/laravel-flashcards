@@ -14,9 +14,17 @@ class EventSourcingCqrs
                 'question' => 'Что такое Event Sourcing?',
                 'answer' => 'Event Sourcing (событийное хранилище) - подход, при котором состояние системы хранится не как текущий снимок, а как последовательность событий, которые к нему привели. Простыми словами: вместо "баланс счёта = 100" мы храним "положили 50, положили 80, сняли 30". Текущее состояние получается воспроизведением событий. Плюсы: полный аудит, возможность отмотать историю, легко добавить новые проекции данных. Минусы: сложность, eventual consistency, миграции событий.',
                 'code_example' => '<?php
-abstract class Event { public \DateTime $occurredAt; }
-class MoneyDeposited extends Event { public function __construct(public int $amount) { $this->occurredAt = new \DateTime(); } }
-class MoneyWithdrawn extends Event { public function __construct(public int $amount) { $this->occurredAt = new \DateTime(); } }
+abstract class Event { public \DateTimeImmutable $occurredAt; }
+class MoneyDeposited extends Event {
+    public function __construct(public readonly int $amount) {
+        $this->occurredAt = new \DateTimeImmutable();
+    }
+}
+class MoneyWithdrawn extends Event {
+    public function __construct(public readonly int $amount) {
+        $this->occurredAt = new \DateTimeImmutable();
+    }
+}
 
 class Account
 {
@@ -29,13 +37,32 @@ class Account
         $this->apply(new MoneyDeposited($amount));
     }
 
+    public function withdraw(int $amount): void
+    {
+        if ($amount > $this->balance) {
+            throw new \DomainException(\'Недостаточно средств\');
+        }
+        $this->apply(new MoneyWithdrawn($amount));
+    }
+
     private function apply(Event $e): void
     {
         match (true) {
             $e instanceof MoneyDeposited => $this->balance += $e->amount,
             $e instanceof MoneyWithdrawn => $this->balance -= $e->amount,
+            default => throw new \LogicException(\'Unknown event\'),
         };
         $this->events[] = $e;
+    }
+
+    // Восстановление состояния из истории (replay)
+    public static function fromEvents(array $events): self
+    {
+        $account = new self();
+        foreach ($events as $e) {
+            $account->apply($e);
+        }
+        return $account;
     }
 }',
                 'code_language' => 'php',

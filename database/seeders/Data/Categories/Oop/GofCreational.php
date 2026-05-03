@@ -144,6 +144,11 @@ $sql = (new QueryBuilder())
                 'question' => 'Паттерн Prototype',
                 'answer' => 'Prototype (прототип) позволяет копировать существующие объекты без зависимости от их конкретных классов. Полезен, когда создание нового объекта дороже клонирования существующего. В PHP реализуется через ключевое слово clone и магический метод __clone() (для глубокого копирования вложенных объектов). По умолчанию clone делает поверхностную копию.',
                 'code_example' => '<?php
+class Author
+{
+    public function __construct(public string $name) {}
+}
+
 class Document
 {
     public function __construct(
@@ -154,13 +159,16 @@ class Document
     public function __clone(): void
     {
         // глубокое копирование вложенного объекта
+        // без этого $copy->author === $original->author (общая ссылка)
         $this->author = clone $this->author;
     }
 }
 
 $original = new Document(\'A\', new Author(\'Иван\'));
 $copy = clone $original;
-$copy->title = \'B\';',
+$copy->title = \'B\';
+$copy->author->name = \'Пётр\';
+echo $original->author->name; // Иван (благодаря __clone)',
                 'code_language' => 'php',
             ],
         ];

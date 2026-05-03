@@ -20,8 +20,8 @@ class TypeIn
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Метод query builder для агрегата по выбранному столбцу с округлением вниз.',
-                'answer' => 'Метод avg возвращает среднее значение. Похожие: sum, max, min, count.',
+                'question' => 'Метод query builder, возвращающий среднее значение по столбцу.',
+                'answer' => 'avg($column) возвращает среднее. Похожие агрегаты: sum, max, min, count. Возвращают числа (не Collection), без округления - округление делайте сами через round().',
                 'short_answer' => 'avg',
                 'difficulty' => 2,
                 'topic' => 'laravel.type_in',
@@ -44,8 +44,8 @@ class TypeIn
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Фасад для отправки события в очередь broadcast.',
-                'answer' => 'event(new SomethingHappened(...)) публикует событие; для broadcasting класс реализует ShouldBroadcast.',
+                'question' => 'Хелпер для диспатча события (в т.ч. с broadcasting).',
+                'answer' => 'event(new SomethingHappened(...)) диспатчит событие; чтобы оно отправилось через broadcasting, класс события должен реализовать ShouldBroadcast (или ShouldBroadcastNow для синхронной отправки).',
                 'short_answer' => 'event',
                 'difficulty' => 2,
                 'topic' => 'laravel.type_in',

@@ -49,10 +49,19 @@ class Security
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое JWT и какие плюсы и минусы?',
-                'answer' => 'JWT (JSON Web Token) - подписанный токен с тремя частями: header.payload.signature, разделёнными точкой. Внутри payload - claims (user_id, exp, roles). Подписан секретом или приватным ключом. Плюсы: stateless (сервер не хранит сессию), удобен для микросервисов и SPA. Минусы: нельзя отозвать до истечения срока (поэтому делают короткий exp + refresh token), размер больше cookie, легко слить чувствительные данные если положить в payload (он base64, не зашифрован).',
+                'answer' => 'JWT (JSON Web Token, RFC 7519) - подписанный токен с тремя частями: header.payload.signature, разделёнными точкой, base64url-кодированы. Внутри payload - claims (sub, iat, exp, roles). Подписан симметричным секретом (HS256) или асимметричным ключом (RS256/ES256). Плюсы: stateless (сервер не хранит сессию), удобен для микросервисов и SPA, любой сервис с public key может проверить токен. Минусы: 1) нельзя отозвать до exp без серверного blacklist (теряем stateless), поэтому короткий exp 5-15 мин + refresh token, 2) размер больше cookie session_id, 3) payload не зашифрован, только подписан - не клади туда чувствительное (для шифрования есть JWE), 4) исторически были атаки alg=none и confusion (RS256→HS256 с public key как secret) - всегда явно whitelisting alg.',
                 'code_example' => 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMiLCJleHAiOjE3MDB9.signature',
                 'code_language' => 'bash',
                 'difficulty' => 3,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'JWT vs server-side sessions - что выбрать?',
+                'answer' => 'Server-side session: сервер хранит сессию (Redis/БД), клиенту даёт session_id в HttpOnly cookie. Плюсы: моментальная отзываемость (удалил из Redis - session мертва), маленький cookie, изменения профиля видны сразу. Минусы: каждый запрос идёт в session store, нужен общий store при горизонтальном масштабировании. JWT: токен с подписью, сервер ничего не помнит. Плюсы: stateless, любой микросервис верифицирует через public key, хорош для distributed/edge. Минусы: отзыв сложен (blacklist убивает stateless), большой размер. Правило: monolith с одной БД сессии - sessions проще; распределённые системы и B2B SSO - JWT (или opaque tokens с introspection как в OAuth2).',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
                 'topic' => 'system_design.security',
             ],
             [
@@ -105,8 +114,39 @@ Access-Control-Max-Age: 86400',
             ],
             [
                 'category' => 'Архитектура систем',
+                'question' => 'Что такое OWASP Top 10?',
+                'answer' => 'OWASP Top 10 (2021) - топ-10 веб-уязвимостей: A01 Broken Access Control (нарушение прав доступа, IDOR), A02 Cryptographic Failures (слабая криптография, plain text), A03 Injection (SQLi, NoSQLi, командная), A04 Insecure Design, A05 Security Misconfiguration (дефолтные креды, debug в проде), A06 Vulnerable and Outdated Components (старые либы с CVE), A07 Identification and Authentication Failures (слабые пароли, brute-force), A08 Software and Data Integrity Failures (CI/CD, supply chain), A09 Security Logging and Monitoring Failures, A10 Server-Side Request Forgery (SSRF). Это базовый чек-лист для аудита.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'Что такое SQL injection и как защищаться?',
+                'answer' => 'SQL Injection - подмена логики SQL-запроса через непроверенный пользовательский ввод. Пример: "SELECT * FROM users WHERE name = \'" . $name . "\'", где $name = "\' OR 1=1 --" даёт всех пользователей. Грозит чтением/изменением/удалением данных, эскалацией прав. Защита: 1) prepared statements (параметризованные запросы) - ввод никогда не попадает в SQL-парсер, всегда как value, 2) ORM (Eloquent, Doctrine) делает это по умолчанию, 3) валидация и whitelist для имён колонок/таблиц (их параметризовать нельзя), 4) принцип минимальных прав - у app-юзера нет DROP, 5) WAF как доп. слой. Никогда не делай ручную конкатенацию SQL.',
+                'code_example' => '<?php
+// плохо - SQL injection
+$users = DB::select("SELECT * FROM users WHERE email = \'$email\'");
+
+// хорошо - prepared statement
+$users = DB::select("SELECT * FROM users WHERE email = ?", [$email]);
+
+// хорошо - Eloquent (под капотом prepared)
+$user = User::where("email", $email)->first();
+
+// для имён колонок нужен whitelist
+$allowed = ["name", "created_at", "email"];
+$column = in_array($sortBy, $allowed) ? $sortBy : "id";
+User::orderBy($column)->get();',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'system_design.security',
+            ],
+            [
+                'category' => 'Архитектура систем',
                 'question' => 'Почему нельзя хешировать пароли через md5 или sha256?',
-                'answer' => 'md5 и sha256 быстрые - именно поэтому плохие для паролей. Современные GPU считают миллиарды sha256/сек, при утечке базы пароли подбираются за минуты. Для паролей нужны медленные функции: bcrypt, argon2, scrypt - они спроектированы быть медленными и потребляющими память. Они автоматически добавляют salt (защита от rainbow tables) и имеют параметр cost (можно увеличивать с ростом мощности железа). В PHP - password_hash/password_verify.',
+                'answer' => 'md5 и sha256 быстрые - именно поэтому плохие для паролей. Современные GPU считают миллиарды sha256/сек, при утечке базы пароли подбираются за минуты. md5 ещё и ломан криптографически (collision attacks). Для паролей нужны медленные функции: bcrypt, argon2, scrypt - они спроектированы быть медленными и потребляющими память. bcrypt: классика с 1999, cost factor (12+), есть лимит в 72 байта. Argon2id (победитель Password Hashing Competition 2015) - современный выбор, защищён от GPU/ASIC, есть параметры memory/time/parallelism. scrypt - между ними, memory-hard. Все они автоматически добавляют salt (защита от rainbow tables). В PHP - password_hash/password_verify (PASSWORD_BCRYPT по умолчанию, рекомендуется PASSWORD_ARGON2ID).',
                 'code_example' => '<?php
 $hash = password_hash("password123", PASSWORD_ARGON2ID);
 if (password_verify($input, $hash)) {

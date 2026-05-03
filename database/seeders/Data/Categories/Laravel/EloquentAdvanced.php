@@ -156,7 +156,7 @@ Post::onlyTrashed()->get();   // только удалённые',
 $post->timestamps = false;
 $post->save();
 
-// или quietly - без событий
+// или quietly - без срабатывания событий (saving/saved/updating/updated)
 $post->updateQuietly([\'views\' => $post->views + 1]);',
                 'code_language' => 'php',
                 'difficulty' => 2,
@@ -170,7 +170,7 @@ $post->updateQuietly([\'views\' => $post->views + 1]);',
     foreach ($users as $u) { /* ... */ }
 });
 
-User::lazy()->each(fn($u) => /* ... */);
+User::lazy()->each(function ($u) { /* ... */ });
 
 foreach (User::cursor() as $user) { /* ... */ }',
                 'code_language' => 'php',
@@ -287,9 +287,19 @@ Comment::with(["commentable" => function (MorphTo $morphTo) {
             [
                 'category' => 'Laravel',
                 'question' => 'Чем отличаются local query scope от global scope и какие подводные камни у global?',
-                'answer' => 'Local scope - public method scopeXxx, явно вызывается в цепочке (User::active()->get()). Global scope автоматически применяется ко всем запросам модели, реализуется через Scope-интерфейс или Closure в booted(). Проблема: можно забыть и удивляться "куда делись soft-deleted записи". Снимать глобальный scope через withoutGlobalScope или withTrashed(). Также job, сериализующий модель, может потерять контекст scope.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Local scope - public method scopeXxx, явно вызывается в цепочке (User::active()->get()). Global scope автоматически применяется ко всем запросам модели, реализуется через Scope-интерфейс или Closure в booted(). Проблема: можно забыть и удивляться "куда делись записи". Снимать глобальный scope через withoutGlobalScope/withoutGlobalScopes. Также job, сериализующий модель и достающий её через query, может зависеть от текущего auth/tenant контекста, который во время выполнения job уже другой.',
+                'code_example' => 'protected static function booted(): void {
+    static::addGlobalScope(\'tenant\', function (Builder $b) {
+        if ($tenantId = auth()->user()?->tenant_id) {
+            $b->where(\'tenant_id\', $tenantId);
+        }
+    });
+}
+
+// Снять
+Post::withoutGlobalScope(\'tenant\')->get();
+Post::withoutGlobalScopes()->get();',
+                'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_advanced',
             ],

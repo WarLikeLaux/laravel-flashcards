@@ -251,8 +251,9 @@ var_dump($weak->get()); // NULL - объект собран GC
 
 // WeakMap - кэш метаданных
 $cache = new WeakMap();
-$user = new User();
+$user = new stdClass();
 $cache[$user] = ["computed" => "data"];
+echo count($cache); // 1
 
 unset($user); // удалит и запись из WeakMap
 echo count($cache); // 0',
@@ -1152,8 +1153,34 @@ $c = &$a;                 // CoW отключён для пары $a/$c',
                 'category' => 'PHP',
                 'question' => 'Чем generator отличается от обычной функции и почему он экономит память?',
                 'answer' => 'Generator - это функция с yield, возвращающая объект Generator, реализующий Iterator. Тело функции выполняется лениво: на каждой итерации до следующего yield, после чего стек замораживается. В памяти живёт только текущее значение и состояние корутины, а не весь набор данных. Это позволяет обрабатывать потоки данных любого размера в O(1) памяти. Дополнительно поддерживаются send() (двусторонняя коммуникация) и yield from (делегирование).',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Обычная функция - строит весь массив
+function rangeArr(int $n): array {
+    $r = [];
+    for ($i = 0; $i < $n; $i++) $r[] = $i;
+    return $r; // O(n) памяти
+}
+
+// Generator - O(1) памяти
+function rangeGen(int $n): Generator {
+    for ($i = 0; $i < $n; $i++) yield $i;
+}
+
+foreach (rangeGen(1_000_000) as $i) {
+    if ($i > 5) break; // не строим миллион - выходим сразу
+}
+
+// send() - двусторонняя коммуникация
+function echoer(): Generator {
+    while (true) {
+        $msg = yield;
+        echo "got: $msg\\n";
+    }
+}
+$g = echoer();
+$g->current();          // запуск до первого yield
+$g->send("hi");         // got: hi',
+                'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'php.composer_autoload',
             ],
@@ -1227,9 +1254,9 @@ opcache.preload=/var/www/preload.php',
                 'answer' => 'SplObjectStorage хранит сильные ссылки - объект-ключ не освободится, пока хранилище живёт. WeakReference (PHP 7.4) - обёртка, не препятствующая GC, get() вернёт null после уборки. WeakMap (PHP 8.0) - ассоциативный массив со слабыми ключами: при удалении объекта запись исчезает автоматически. Используется для кэшей и метаданных, привязанных к объекту, без утечек.',
                 'code_example' => '<?php
 $cache = new WeakMap();
-$user = new User(1);
+$user = new stdClass();
 $cache[$user] = "expensive_payload";
-unset($user);             // запись из WeakMap уйдёт',
+unset($user);             // запись из WeakMap уйдёт автоматически',
                 'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'php.composer_autoload',
@@ -1273,8 +1300,32 @@ class Controller {
                 'category' => 'PHP',
                 'question' => 'В чём разница между abstract, interface и trait и когда выбирать что?',
                 'answer' => 'Interface задаёт контракт без реализации, поддерживает множественную реализацию, не имеет состояния. Abstract class - частичная реализация плюс контракт, одиночное наследование, может иметь свойства. Trait - горизонтальное переиспользование кода (mixin), копируется в класс при компиляции, не образует тип. Интерфейс - для polymorphism, abstract - для шаблонного метода с общим состоянием, trait - для дублирующейся логики между несвязанными классами.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Interface - контракт без состояния, можно несколько
+interface Logger { public function log(string $m): void; }
+interface Cacheable { public function key(): string; }
+
+// Abstract - общая логика + один контракт
+abstract class Repository {
+    public function __construct(protected PDO $db) {}
+    abstract protected function table(): string;
+    public function all(): array {
+        return $this->db->query("SELECT * FROM {$this->table()}")->fetchAll();
+    }
+}
+
+// Trait - mixin: копируется в класс
+trait HasTimestamps {
+    public ?int $createdAt = null;
+    public function touch(): void { $this->createdAt = time(); }
+}
+
+class UserRepository extends Repository implements Logger {
+    use HasTimestamps;
+    protected function table(): string { return "users"; }
+    public function log(string $m): void { /* ... */ }
+}',
+                'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'php.composer_autoload',
             ],
@@ -1291,8 +1342,17 @@ class Controller {
                 'category' => 'PHP',
                 'question' => 'Что выведет код с замыканием, захватившим переменную по значению, если её изменить после создания замыкания?',
                 'answer' => 'use ($var) копирует значение в момент создания closure - последующие изменения снаружи не видны внутри. use (&$var) захватывает по ссылке: видны изменения в обе стороны. PHP 7.4+ поддерживает arrow functions (fn() =>), которые автоматически захватывают by value все используемые переменные внешнего скоупа.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+$x = 1;
+$byValue = function () use ($x) { return $x; };
+$byRef   = function () use (&$x) { return $x; };
+$arrow   = fn () => $x; // arrow тоже by value, в момент создания
+
+$x = 99;
+echo $byValue(); // 1   - захвачено старое значение
+echo $byRef();   // 99  - актуальное (по ссылке)
+echo $arrow();   // 1   - arrow зафиксировал значение при создании',
+                'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'php.composer_autoload',
             ],

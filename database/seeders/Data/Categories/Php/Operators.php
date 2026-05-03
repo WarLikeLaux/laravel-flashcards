@@ -10,23 +10,28 @@ class Operators
             [
                 'category' => 'PHP',
                 'question' => 'Как привести строку к числу в PHP?',
-                'answer' => 'Способов несколько: явное приведение через (int) или (float), функции intval()/floatval(), умножение на 1, или функции преобразования. PHP сам приводит строку к числу при арифметических операциях. Если строка не начинается с числа - получим 0. С PHP 8 нечисловые строки в арифметике дают TypeError или Warning.',
+                'answer' => 'Способов несколько: явное приведение через (int) или (float), функции intval()/floatval(), умножение на 1. Касты сами по себе не выдают warning - даже (int) "abc" вернёт 0. Но в АРИФМЕТИКЕ с PHP 8 нечисловая строка даёт Warning ("A non-numeric value encountered"), а полностью не-числовая строка ("abc" + 1) - TypeError. intval() принимает второй аргумент - систему счисления (base 2..36).',
                 'code_example' => '<?php
 $str = "42abc";
 
-$n1 = (int) $str;        // 42
+$n1 = (int) $str;        // 42 (без warning)
 $n2 = intval($str);      // 42
-$n3 = $str * 1;          // 42 (с warning в PHP 8)
-$n4 = (int) "abc";       // 0
-$n5 = (float) "3.14e2";  // 314.0
+$n3 = $str * 1;          // 42, но Warning в PHP 8+
+$n4 = (int) "abc";       // 0 (без warning)
+$n5 = (float) "3.14e2";  // float(314)
 
-// Безопасный парсинг
+// intval с системой счисления
+intval("0xFF", 16);      // 255
+intval("ff", 16);        // 255
+
+// Безопасный парсинг целого
 if (ctype_digit($str)) {
     $num = (int) $str;
 }
 
 // filter_var для строгой валидации
-$num = filter_var("42", FILTER_VALIDATE_INT); // 42 или false',
+$num = filter_var("42", FILTER_VALIDATE_INT);   // 42
+$num = filter_var("42abc", FILTER_VALIDATE_INT); // false',
                 'code_language' => 'php',
                 'difficulty' => 2,
                 'topic' => 'php.operators',

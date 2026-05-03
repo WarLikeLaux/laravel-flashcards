@@ -64,9 +64,25 @@ $this->app->scoped(CartHolder::class, fn() => new CartHolder());',
             [
                 'category' => 'Laravel',
                 'question' => 'Как работает Laravel Horizon и какие метрики он даёт?',
-                'answer' => 'Horizon - дашборд и супервизор для Redis-очередей. Конфигурируется в config/horizon.php: массив supervisors с балансингом (auto/simple), maxProcesses, queues. Дашборд показывает throughput, runtime, failed jobs, worker memory. auto-balance перераспределяет процессы между очередями по нагрузке. horizon:terminate грейсфул-перезапускает воркеры при деплое.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Horizon - дашборд и супервизор для Redis-очередей. Конфигурируется в config/horizon.php: массив supervisors с балансингом (auto/simple/false), maxProcesses, queues, balanceMaxShift, balanceCooldown. Дашборд показывает throughput, runtime, failed jobs, worker memory, recent jobs. auto-balance перераспределяет процессы между очередями по нагрузке. horizon:terminate грейсфул-перезапускает воркеры при деплое (текущие job дорабатываются).',
+                'code_example' => '// config/horizon.php
+\'environments\' => [
+    \'production\' => [
+        \'supervisor-1\' => [
+            \'connection\' => \'redis\',
+            \'queue\' => [\'default\', \'emails\', \'notifications\'],
+            \'balance\' => \'auto\',
+            \'minProcesses\' => 1,
+            \'maxProcesses\' => 20,
+            \'tries\' => 3,
+            \'timeout\' => 60,
+        ],
+    ],
+],
+
+# деплой
+php artisan horizon:terminate',
+                'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.octane_horizon',
             ],

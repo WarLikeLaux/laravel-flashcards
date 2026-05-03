@@ -29,8 +29,15 @@ class Middleware
             [
                 'category' => 'Laravel',
                 'question' => 'Какие типы middleware бывают в Laravel?',
-                'answer' => 'Глобальные middleware - выполняются для всех запросов (зарегистрированы в Kernel/$middleware). Group middleware - применяются к группе роутов (web, api). Route middleware - назначаются вручную на конкретные роуты через alias. Terminate-middleware - выполняется после отправки ответа клиенту (метод terminate).',
-                'code_example' => 'Route::middleware([\'auth\', \'verified\'])->group(function () {
+                'answer' => 'Глобальные middleware - выполняются для всех запросов. Group middleware - применяются к группе роутов (web, api). Route middleware - назначаются вручную на конкретные роуты через alias. Terminate-middleware - выполняется после отправки ответа клиенту (метод terminate). В Laravel 10 и ниже регистрация шла через app/Http/Kernel.php, в Laravel 11+ всё это переехало в bootstrap/app.php (метод withMiddleware).',
+                'code_example' => '// Laravel 11+ bootstrap/app.php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->append(EnsureUserIsActive::class);          // глобально
+    $middleware->web(append: [TrackVisits::class]);          // в группу web
+    $middleware->alias([\'subscribed\' => Subscribed::class]); // alias для роутов
+})
+
+Route::middleware([\'auth\', \'verified\', \'subscribed\'])->group(function () {
     Route::get(\'/dashboard\', [DashboardController::class, \'index\']);
 });',
                 'code_language' => 'php',

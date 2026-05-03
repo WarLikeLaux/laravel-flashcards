@@ -12,7 +12,7 @@ class Ddd
                 'topic' => 'oop.ddd',
                 'difficulty' => 4,
                 'question' => 'Что такое Domain-Driven Design (DDD)?',
-                'answer' => 'DDD (предметно-ориентированное проектирование) - это подход к разработке сложных систем, в центре которого глубокое понимание предметной области. Идея: код должен отражать бизнес-домен, а не техническую реализацию. Ключевые концепции: Ubiquitous Language (единый язык бизнеса и кода), Bounded Context (границы модели), Entity, Value Object, Aggregate, Repository, Domain Service, Domain Event. DDD особенно ценен в больших проектах со сложной бизнес-логикой.',
+                'answer' => 'DDD (предметно-ориентированное проектирование) - это подход к разработке сложных систем, в центре которого глубокое понимание предметной области. Идея: код должен отражать бизнес-домен, а не техническую реализацию. Делится на Strategic DDD (стратегические паттерны: Bounded Context, Context Map, Ubiquitous Language) и Tactical DDD (тактические паттерны: Entity, Value Object, Aggregate, Repository, Domain Service, Domain Event). DDD оправдан в проектах со сложной бизнес-логикой; для CRUD-приложений - оверкилл.',
                 'code_example' => null,
                 'code_language' => null,
             ],
@@ -121,12 +121,21 @@ interface UserRepository
 // Реализация для PostgreSQL
 class PostgresUserRepository implements UserRepository
 {
+    public function __construct(private \PDO $pdo) {}
+
     public function findById(string $id): ?User
     {
-        // SQL ...
+        // SELECT * FROM users WHERE id = :id ...
+        return null;
     }
-    public function save(User $user): void { /* SQL */ }
-    public function remove(User $user): void { /* SQL */ }
+    public function save(User $user): void { /* INSERT/UPDATE */ }
+    public function remove(User $user): void { /* DELETE */ }
+}
+
+// Доменный код работает с интерфейсом, не зная об SQL
+class RegisterUser
+{
+    public function __construct(private UserRepository $users) {}
 }',
                 'code_language' => 'php',
             ],
@@ -156,17 +165,56 @@ class MoneyTransferService // Domain Service
                 'difficulty' => 4,
                 'question' => 'Что такое Bounded Context в DDD?',
                 'answer' => 'Bounded Context (ограниченный контекст) - граница, внутри которой модель имеет конкретное значение. Простыми словами: слово "продукт" в контексте продаж - это товар с ценой, а в контексте склада - это коробка с весом и габаритами. Это разные модели! BC разделяет систему на независимые куски, у каждого своя модель и язык. Между контекстами - явные интеграции (anti-corruption layer, shared kernel). Помогает бороться со сложностью больших доменов.',
-                'code_example' => null,
-                'code_language' => null,
+                'code_example' => '<?php
+// Контекст продаж: важна цена и наличие
+namespace Sales;
+final class Product
+{
+    public function __construct(
+        public readonly string $sku,
+        public readonly Money $price,
+        public int $stock,
+    ) {}
+}
+
+// Контекст склада: важны габариты и расположение
+namespace Warehouse;
+final class Product
+{
+    public function __construct(
+        public readonly string $sku,
+        public readonly float $weightKg,
+        public readonly Dimensions $size,
+        public readonly string $shelf,
+    ) {}
+}
+// Один и тот же SKU - разные модели в разных контекстах',
+                'code_language' => 'php',
             ],
             [
                 'category' => 'ООП',
                 'topic' => 'oop.ddd',
                 'difficulty' => 4,
                 'question' => 'Что такое Ubiquitous Language в DDD?',
-                'answer' => 'Ubiquitous Language (вездесущий язык) - единый язык, на котором общаются разработчики, бизнес-аналитики и заказчики. Этот же язык используется в коде: имена классов, методов, переменных совпадают с терминами бизнеса. Простыми словами: если бизнес говорит "оформить заказ" - в коде должен быть метод placeOrder(), а не doStuff(). Это устраняет двусмысленность и потери при переводе требований в код.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Ubiquitous Language (вездесущий язык) - единый язык, на котором общаются разработчики, бизнес-аналитики и заказчики. Этот же язык используется в коде: имена классов, методов, переменных совпадают с терминами бизнеса. Простыми словами: если бизнес говорит "оформить заказ" - в коде должен быть метод placeOrder(), а не doStuff(). Это устраняет двусмысленность и потери при переводе требований в код. Язык живёт в рамках одного Bounded Context - в другом контексте те же слова могут значить иное.',
+                'code_example' => '<?php
+// Плохо: технические термины, оторванные от бизнеса
+class OrderManager
+{
+    public function process(int $id, int $status): bool { /* ... */ }
+    public function update(int $id, array $data): void { /* ... */ }
+}
+
+// Хорошо: код говорит на языке бизнеса
+class Order
+{
+    public function place(): void { /* оформить */ }
+    public function pay(Money $amount): void { /* оплатить */ }
+    public function ship(Address $to): void { /* отгрузить */ }
+    public function cancel(string $reason): void { /* отменить */ }
+}
+// В разговоре с бизнесом и в коде - одни и те же слова',
+                'code_language' => 'php',
             ],
         ];
     }

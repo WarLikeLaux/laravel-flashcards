@@ -46,8 +46,9 @@ class OrderShipped extends Mailable {
     }
 }
 
-Mail::to($user)->send(new OrderShipped($order));
-Mail::to($user)->queue(new OrderShipped($order));',
+Mail::to($user)->send(new OrderShipped($order));      // синхронно
+Mail::to($user)->queue(new OrderShipped($order));     // в очередь
+Mail::to($user)->later(now()->addMinutes(10), new OrderShipped($order));',
                 'code_language' => 'php',
                 'difficulty' => 2,
                 'topic' => 'laravel.mail_notifications',

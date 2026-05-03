@@ -101,7 +101,7 @@ class NumberCollection implements \IteratorAggregate
 }
 
 $nc = new NumberCollection([1, 2, 3]);
-foreach ($nc as $n) echo $n; // 246',
+foreach ($nc as $n) echo $n . \' \'; // 2 4 6',
                 'code_language' => 'php',
             ],
             [
@@ -242,30 +242,42 @@ class NewState implements OrderState
     }
     public function ship(Order $o): void
     {
-        echo "Нельзя отправить - не оплачено\n";
+        throw new \DomainException(\'Нельзя отправить - не оплачено\');
     }
 }
 
 class PaidState implements OrderState
 {
-    public function pay(Order $o): void { echo "Уже оплачено\n"; }
+    public function pay(Order $o): void
+    {
+        throw new \DomainException(\'Уже оплачено\');
+    }
     public function ship(Order $o): void
     {
         $o->setState(new ShippedState());
+        echo "Отправлено\n";
+    }
+}
+
+class ShippedState implements OrderState
+{
+    public function pay(Order $o): void
+    {
+        throw new \DomainException(\'Уже отправлено\');
+    }
+    public function ship(Order $o): void
+    {
+        throw new \DomainException(\'Уже отправлено\');
     }
 }
 
 class Order
 {
-    public function __construct(private OrderState $state = new NewState()) {}
+    private OrderState $state;
+    public function __construct() { $this->state = new NewState(); }
     public function setState(OrderState $s): void { $this->state = $s; }
     public function pay(): void { $this->state->pay($this); }
     public function ship(): void { $this->state->ship($this); }
-}
-
-class ShippedState implements OrderState {
-    public function pay(Order $o): void {}
-    public function ship(Order $o): void {}
 }',
                 'code_language' => 'php',
             ],

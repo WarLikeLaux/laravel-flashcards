@@ -111,9 +111,21 @@ php artisan route:cache',
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое model binding и как сделать кастомное связывание по slug?',
-                'answer' => 'Implicit binding ловит type-hint Model в методе контроллера и резолвит по primary key из URL-параметра. Чтобы биндить по slug, переопределите getRouteKeyName() на модели или укажите в роуте users/{user:slug}. Можно бросать 404 руками через Route::bind() и кастомный резолвер. Для расширенной логики - Explicit binding в RouteServiceProvider.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Implicit binding ловит type-hint Model в методе контроллера и резолвит по primary key из URL-параметра. Чтобы биндить по slug, переопределите getRouteKeyName() на модели или укажите в роуте users/{user:slug}. Можно делать кастомный резолвер через Route::bind() (firstOrFail сам бросит 404). Для составных условий используйте Explicit binding в провайдере (в L11 - в любом ServiceProvider).',
+                'code_example' => '// Вариант 1: getRouteKeyName в модели
+class Post extends Model {
+    public function getRouteKeyName(): string { return \'slug\'; }
+}
+Route::get(\'/posts/{post}\', fn(Post $p) => $p);
+
+// Вариант 2: указать поле в роуте
+Route::get(\'/posts/{post:slug}\', fn(Post $p) => $p);
+
+// Вариант 3: explicit bind с кастомной логикой
+Route::bind(\'post\', fn($value) =>
+    Post::where(\'slug\', $value)->where(\'published\', true)->firstOrFail()
+);',
+                'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'laravel.routing',
             ],

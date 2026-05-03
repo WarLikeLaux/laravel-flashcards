@@ -31,7 +31,7 @@ class MessagingQueues
             [
                 'category' => 'Архитектура систем',
                 'question' => 'В чём разница между RabbitMQ и Kafka?',
-                'answer' => 'RabbitMQ - классическая очередь сообщений: AMQP протокол, маршрутизация через exchanges, сообщение удаляется после прочтения, push-модель. Kafka - распределённый лог событий: сообщения хранятся днями, ничего не удаляется, consumer сам читает с offset (pull), горизонтально масштабируется через partitions. RabbitMQ для классических очередей задач (рассылки, обработка), Kafka для event streaming, аналитики, миллионов событий в секунду.',
+                'answer' => 'RabbitMQ - классический message broker по AMQP 0.9.1: маршрутизация через exchanges (direct/topic/fanout/headers), сообщение удаляется после ack, push-модель, сложная routing-логика, ~30-50k msg/s на узел, ordering на уровне очереди. Kafka - распределённый append-only лог: сообщения хранятся по retention (часы/дни/forever), ничего не удаляется по факту чтения, consumer сам держит offset (pull), горизонтально масштабируется через partitions, ordering гарантируется только внутри partition, ~миллионы msg/s. SQS - managed AWS-очередь, Standard (at-least-once, без порядка) и FIFO (exactly-once + порядок, но 300 msg/s). Выбор: RabbitMQ для task queue с богатой routing; Kafka для event streaming, аналитики, CDC, replay; SQS - serverless AWS.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 4,
@@ -40,7 +40,16 @@ class MessagingQueues
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое at-most-once, at-least-once, exactly-once в очередях?',
-                'answer' => 'At-most-once - сообщение доставится 0 или 1 раз, но не больше (можно потерять). At-least-once - 1 или больше раз (могут быть дубли). Exactly-once - ровно один раз (идеал). Большинство систем дают at-least-once, exactly-once в распределённой системе строго недостижимо (см. Two Generals Problem). На практике делают at-least-once + идемпотентного консьюмера = "effectively-once".',
+                'answer' => 'At-most-once - сообщение доставится 0 или 1 раз (можно потерять при сбое), реализуется через fire-and-forget без ack. At-least-once - 1 или больше раз: producer ретраит при отсутствии ack, consumer ack-ает после обработки; стандарт SQS Standard, RabbitMQ с ack, Kafka с acks=all. Дубли возможны - нужна идемпотентность. Exactly-once строго в распределённой системе недостижимо (Two Generals Problem). На практике достигается комбинацией at-least-once + идемпотентный consumer (dedup по message-id) - это называется "effectively-once". Kafka даёт transactional EOS внутри своих топиков (idempotent producer + transactions + isolation.level=read_committed), но при выходе наружу (БД, HTTP) ответственность ложится на consumer. SQS FIFO даёт exactly-once в пределах 5-минутного окна.',
+                'code_example' => null,
+                'code_language' => null,
+                'difficulty' => 4,
+                'topic' => 'system_design.messaging_queues',
+            ],
+            [
+                'category' => 'Архитектура систем',
+                'question' => 'Какие гарантии порядка сообщений дают разные брокеры?',
+                'answer' => 'Kafka: строгий порядок только внутри partition; partition выбирается по hash(key), поэтому сообщения с одним key всегда в одной partition (используется для "все события заказа №42 в одном порядке"). При нескольких partition между ними порядка нет. RabbitMQ: порядок в пределах одной очереди при одном consumer; при нескольких consumer-ах порядок ломается из-за параллельной обработки и redelivery. SQS Standard - порядок не гарантируется вообще; SQS FIFO - порядок в пределах MessageGroupId. Если важен порядок - выбирай ключ группировки осознанно (по entity_id) и держи parallelism=1 на ключ (single-active consumer в RabbitMQ, partition=consumer в Kafka).',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 4,

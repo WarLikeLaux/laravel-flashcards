@@ -13,7 +13,7 @@ class SqlBasics
             [
                 'category' => 'Базы данных',
                 'question' => 'Что такое SELECT и из чего состоит базовый запрос?',
-                'answer' => 'SELECT - это команда выборки данных. Базовая структура: SELECT столбцы FROM таблица WHERE условие ORDER BY столбец LIMIT N OFFSET M. Порядок выполнения логически: FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY -> LIMIT.',
+                'answer' => 'SELECT - это команда выборки данных. Базовая структура: SELECT столбцы FROM таблица WHERE условие ORDER BY столбец LIMIT N OFFSET M. Порядок логического выполнения (важно для понимания, что в WHERE нельзя использовать алиасы из SELECT): FROM/JOIN -> WHERE -> GROUP BY -> HAVING -> SELECT (включая оконные функции и DISTINCT) -> ORDER BY -> LIMIT/OFFSET.',
                 'code_example' => <<<'SQL'
 SELECT id, name, email
 FROM users
@@ -307,11 +307,14 @@ SELECT
     END AS salary_band
 FROM employees;
 
--- CASE для условной агрегации
+-- CASE для условной агрегации (портируемо)
 SELECT
-    COUNT(*) FILTER (WHERE status = 'completed') AS done,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) AS done,
     COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending
 FROM orders;
+
+-- FILTER (PostgreSQL/стандарт SQL, нет в MySQL)
+SELECT COUNT(*) FILTER (WHERE status = 'completed') AS done FROM orders;
 SQL,
                 'code_language' => 'sql',
                 'difficulty' => 2,

@@ -51,8 +51,8 @@ class TypeIn
             ],
             [
                 'category' => 'PHP',
-                'question' => 'SPL-класс для очереди FIFO с push/pop в обоих концах.',
-                'answer' => 'SplDoublyLinkedList - основа для SplQueue (FIFO) и SplStack (LIFO).',
+                'question' => 'SPL-класс - двусвязный список с push/pop/shift/unshift на обоих концах (deque), основа для SplStack и SplQueue.',
+                'answer' => 'SplDoublyLinkedList - двусвязный список с операциями на обоих концах. На его базе реализованы SplQueue (FIFO, разрешает enqueue/dequeue) и SplStack (LIFO).',
                 'short_answer' => 'SplDoublyLinkedList',
                 'difficulty' => 4,
                 'topic' => 'php.type_in',

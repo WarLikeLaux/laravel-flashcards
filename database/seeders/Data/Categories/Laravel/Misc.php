@@ -287,7 +287,7 @@ tap($user, fn($u) => $u->update([\'last_login\' => now()]))->save();',
             [
                 'category' => 'Laravel',
                 'question' => 'Что нового в Laravel 11 по сравнению с Laravel 10?',
-                'answer' => 'Laravel 11: упрощённая структура (нет Kernel.php, Middleware, Exceptions - всё в bootstrap/app.php). routes/console.php вместо ConsoleKernel. Новый health endpoint /up. Новый Dumpable trait. Per-second rate limiting. Граф eager-loading улучшен. Casts через cast() метод вместо $casts (опционально). Минимальный PHP 8.2.',
+                'answer' => 'Laravel 11: упрощённая структура (нет app/Http/Kernel.php, ConsoleKernel, app/Exceptions/Handler.php - всё в bootstrap/app.php). routes/console.php вместо ConsoleKernel для расписания/команд. Health-endpoint /up из коробки. Per-second rate limiting (perSecond). Метод casts() в модели как альтернатива свойству $casts. Slimmer config: многие опции убраны в дефолты. Минимальный PHP 8.2. Из новых пакетов экосистемы: Reverb (WebSocket-сервер), Pennant (feature flags), Volt (single-file Livewire), Folio (page-based routing).',
                 'code_example' => '// bootstrap/app.php
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(web: __DIR__.\'/../routes/web.php\')

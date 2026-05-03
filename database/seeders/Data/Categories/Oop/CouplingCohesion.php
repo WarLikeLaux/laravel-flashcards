@@ -49,9 +49,37 @@ $order->markAsPaid();',
                 'topic' => 'oop.coupling_cohesion',
                 'difficulty' => 3,
                 'question' => 'Что такое Coupling и Cohesion?',
-                'answer' => 'Coupling (связность, связанность) - степень зависимости одного модуля от другого. Чем сильнее coupling - тем труднее менять код, тестировать, переиспользовать. Стремимся к loose coupling (слабой связности). Cohesion (сплочённость) - насколько элементы внутри модуля связаны общей задачей. Высокая cohesion - модуль делает одно дело хорошо. Низкая - смесь несвязанных функций. Цель ООП: low coupling + high cohesion. Это коррелирует с SRP (cohesion) и DIP (coupling).',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Coupling (зацепление, связанность) - степень зависимости одного модуля от другого. Чем сильнее coupling - тем труднее менять код, тестировать, переиспользовать. Стремимся к loose coupling (слабой связности). Cohesion (сплочённость) - насколько элементы внутри модуля связаны общей задачей. Высокая cohesion - модуль делает одно дело хорошо. Низкая - смесь несвязанных функций. Цель ООП: low coupling + high cohesion. Это коррелирует с SRP (cohesion) и DIP (coupling). Хитрость: повышая cohesion (выделяя ответственности в отдельные классы), часто непреднамеренно повышаем и coupling между ними - баланс важен.',
+                'code_example' => '<?php
+// Высокий coupling + низкий cohesion (плохо)
+class UserManager
+{
+    public function register(array $data): void
+    {
+        $pdo = new \PDO(\'mysql:...\'); // прямая зависимость от PDO
+        $pdo->exec(\'INSERT INTO users ...\');
+        mail($data[\'email\'], \'Welcome\', \'...\'); // отправка почты тут же
+        file_put_contents(\'/var/log/users.log\', \'...\'); // логи тут же
+    }
+}
+
+// Низкий coupling + высокий cohesion (хорошо)
+class UserRegistrar
+{
+    public function __construct(
+        private UserRepository $users,   // абстракция
+        private Mailer $mailer,
+        private LoggerInterface $logger,
+    ) {}
+
+    public function register(User $user): void
+    {
+        $this->users->save($user);
+        $this->mailer->sendWelcome($user);
+        $this->logger->info(\'user.registered\', [\'id\' => $user->id]);
+    }
+}',
+                'code_language' => 'php',
             ],
         ];
     }

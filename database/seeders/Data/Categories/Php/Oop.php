@@ -269,7 +269,7 @@ class User {
 }
 
 $user = new User("Иван", 30, "i@i.ru");
-echo $user->email; // Иван',
+echo $user->email; // i@i.ru',
                 'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'php.oop',

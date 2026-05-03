@@ -82,9 +82,26 @@ $user->roles()->sync([1, 2, 3]);',
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое pivot model и зачем он нужен в belongsToMany?',
-                'answer' => 'Базовый pivot - это просто строка-связка. Когда на ней нужны дополнительные поля (role, joined_at), методы или события, объявляют отдельную модель, наследующую Pivot, и подключают её через using(MembershipPivot::class). Это позволяет иметь withPivot, withTimestamps, accessors и события created/updated на самой связке.',
-                'code_example' => null,
-                'code_language' => null,
+                'answer' => 'Базовый pivot - это просто строка-связка. Когда на ней нужны дополнительные поля (role, joined_at), методы или события, объявляют отдельную модель, наследующую Pivot, и подключают её через using(MembershipPivot::class). Это позволяет иметь withPivot, withTimestamps, accessors и события created/updated на самой связке. Для many-to-many полиморфных используется MorphPivot.',
+                'code_example' => 'class Membership extends Pivot {
+    protected $casts = [\'joined_at\' => \'datetime\'];
+
+    public function isOwner(): bool {
+        return $this->role === \'owner\';
+    }
+}
+
+class User extends Model {
+    public function teams() {
+        return $this->belongsToMany(Team::class)
+            ->using(Membership::class)
+            ->withPivot([\'role\', \'joined_at\'])
+            ->withTimestamps();
+    }
+}
+
+$user->teams->first()->pivot->isOwner();',
+                'code_language' => 'php',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_relations',
             ],

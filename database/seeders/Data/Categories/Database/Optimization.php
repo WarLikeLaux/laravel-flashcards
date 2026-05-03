@@ -77,16 +77,22 @@ SQL,
                 'question' => 'Что такое N+1 проблема и как её решать?',
                 'answer' => 'N+1 - проблема ORM, когда для получения N записей делается 1 запрос на список + N запросов на связанные данные. Например, 100 пользователей -> 1 + 100 = 101 запрос. Решение: eager loading (Eloquent: with(), JPA: JOIN FETCH), JOIN-ы вручную, dataloader (для GraphQL). В Laravel: User::with("posts")->get() вместо ->get() + загрузка $user->posts по требованию.',
                 'code_example' => <<<'PHP'
-// Плохо: N+1
+// Плохо: N+1 (1 запрос users + N запросов posts)
 $users = User::all();
 foreach ($users as $user) {
-    echo $user->posts->count(); // отдельный запрос
+    echo $user->posts->count(); // ленивая загрузка posts на каждой итерации
 }
 
-// Хорошо: eager loading
+// Хорошо: eager loading (всего 2 запроса)
 $users = User::with('posts')->get();
 foreach ($users as $user) {
-    echo $user->posts->count(); // без доп. запроса
+    echo $user->posts->count(); // posts уже загружены, count() по коллекции
+}
+
+// Ещё лучше для счётчиков: withCount (один запрос с подзапросом)
+$users = User::withCount('posts')->get();
+foreach ($users as $user) {
+    echo $user->posts_count;
 }
 PHP,
                 'code_language' => 'php',
