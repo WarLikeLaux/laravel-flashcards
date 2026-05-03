@@ -10,7 +10,7 @@ class MagicMethods
             [
                 'category' => 'PHP',
                 'question' => 'Какие магические методы есть в PHP?',
-                'answer' => 'Магические методы вызываются автоматически в специальных ситуациях, имеют префикс __. Основные: __construct/__destruct, __get/__set/__isset/__unset (для несуществующих свойств), __call/__callStatic (для несуществующих методов), __toString (приведение к строке), __invoke (вызов объекта как функции), __clone (после клонирования), __serialize/__unserialize, __debugInfo (для var_dump). Минус: непрозрачны, тяжелее анализировать.',
+                'answer' => 'Магические методы вызываются автоматически в специальных ситуациях, имеют префикс __. Основные: __construct/__destruct, __get/__set/__isset/__unset (для несуществующих свойств), __call/__callStatic (для несуществующих методов), __toString (приведение к строке), __invoke (вызов объекта как функции), __clone (после клонирования), __serialize/__unserialize (с PHP 7.4 - современная замена пары __sleep/__wakeup и интерфейса Serializable; новые проекты должны использовать только их, __sleep/__wakeup и Serializable считаются legacy и формально deprecated в PHP 8.1+ для интерфейса), __debugInfo (для var_dump). Минус: непрозрачны, тяжелее анализировать.',
                 'code_example' => '<?php
 class Container {
     private array $data = [];

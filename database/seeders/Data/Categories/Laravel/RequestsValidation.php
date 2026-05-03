@@ -99,7 +99,7 @@ $request->validate([\'code\' => [\'required\', new Uppercase()]]);',
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Form Request и какие у него этапы валидации?',
-                'answer' => 'FormRequest - типизированный request с инкапсулированной валидацией и авторизацией. Контейнер резолвит его, вызывает authorize(), потом rules(), prepareForValidation() позволяет нормализовать вход до валидации, withValidator() добавлять after-rules, passedValidation() - пост-обработку. failedValidation/failedAuthorization кастомизируют ответы. Это переносит ответственность из контроллера и облегчает тестирование.',
+                'answer' => 'FormRequest - типизированный request с инкапсулированной валидацией и авторизацией. Контейнер резолвит его и через ValidatesWhenResolvedTrait::validateResolved() запускает фиксированную последовательность: 1) prepareForValidation() (нормализация входа - merge/replace ДО авторизации и правил), 2) passesAuthorization() → authorize() (если false → failedAuthorization), 3) getValidatorInstance() - создание валидатора, внутри которого читаются rules()/messages()/attributes() и вызывается withValidator() для after-rules, 4) если валидатор fails → failedValidation, иначе passedValidation() для пост-обработки. failedValidation/failedAuthorization можно переопределять для кастомных ответов. Тонкий момент: prepareForValidation() выполняется ДО authorize(), поэтому authorize() уже видит нормализованные данные ($this->input()).',
                 'code_example' => '<?php
 class StoreUserRequest extends FormRequest {
     protected function prepareForValidation(): void {
