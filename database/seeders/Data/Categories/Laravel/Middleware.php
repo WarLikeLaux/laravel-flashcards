@@ -105,6 +105,47 @@ CACHE_STORE=database // dev/small projects',
                 'difficulty' => 4,
                 'topic' => 'laravel.middleware',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое $middlewarePriority и почему StartSession должен выполниться до VerifyCsrfToken / Authenticate?',
+                'answer' => 'Когда middleware регистрируются как глобальные ИЛИ как часть группы (web/api), Laravel выстраивает их в стек в порядке регистрации - но для НЕКОТОРЫХ middleware важен жёсткий взаимный порядок, который не должен зависеть от того, как их добавили в Kernel. Для этого есть свойство $middlewarePriority в HttpKernel (Laravel 10 и ниже) или $middleware->priority(...) в bootstrap/app.php (Laravel 11+) - массив классов, задающий "правильный" взаимный порядок этих конкретных middleware. Если несколько из них активны на маршруте, Laravel пересортирует их именно по этому списку, а не по порядку добавления. Классические зависимости. 1) StartSession ДО ShareErrorsFromSession, AuthenticateSession, VerifyCsrfToken: чтобы во всех последующих был доступ к $request->session(); CSRF-токен проверяется по значению из сессии, без StartSession токена просто нет. 2) AddQueuedCookiesToResponse и EncryptCookies должны идти между терминальной обработкой и ответом, чтобы зашифровать поставленные ниже куки. 3) Authenticate ПОСЛЕ StartSession и SubstituteBindings - чтобы guard сессионный смог достать user, а route-binding ($user в типизированном параметре) уже разрезолвили модель. Что бывает при поломке порядка: VerifyCsrfToken до StartSession - токен всегда null/несовпадает, все POST дают 419; Authenticate до SubstituteBindings - $request->user() ещё не доступен в момент инжекта policy. Проверить применённый порядок: php artisan route:list -v или dump через middleware-дебаггер.',
+                'code_example' => '<?php
+// Laravel 10 и ниже - app/Http/Kernel.php
+class Kernel extends HttpKernel {
+    protected $middlewarePriority = [
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Routing\Middleware\ThrottleRequests::class,
+        \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\AuthenticateSession::class,
+        \Illuminate\Auth\Middleware\Authorize::class,
+    ];
+}
+
+// Laravel 11+ - bootstrap/app.php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->priority([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Auth\Middleware\Authorize::class,
+    ]);
+})
+
+// Симптомы поломанного порядка
+// 419 PAGE EXPIRED на каждом POST - VerifyCsrfToken до StartSession
+// $request->user() === null в Authenticate - guard до StartSession
+// "Cookie не приходит" - AddQueuedCookies после рендера ответа',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.middleware',
+            ],
         ];
     }
 }

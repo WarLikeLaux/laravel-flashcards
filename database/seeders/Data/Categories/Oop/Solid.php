@@ -266,6 +266,43 @@ class CachedUserRepo extends UserRepository
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'difficulty' => 4,
+                'question' => 'Почему наличие интерфейса не означает соблюдение DIP? Что такое leaky abstraction в DIP-контексте?',
+                'answer' => 'Dependency Inversion Principle: high-level модули НЕ должны зависеть от low-level (БД, HTTP-клиент, файловая система); оба должны зависеть от АБСТРАКЦИИ. Частая ошибка: разработчик добавил интерфейс - значит "DIP соблюдён". Не обязательно. Интерфейс соблюдает DIP только когда: 1) Назван и определён в терминах ДОМЕНА (UserRepository, PaymentGateway), а не инфраструктуры (MySqlUserRepository, RedisQueue). 2) Методы говорят на языке клиента (findActive(): array, save(User $u): void), а не реализации (findBySql(string $sql): array, executeRedisCommand($cmd)). 3) Абстракция ПРИНАДЛЕЖИТ слою клиента/домена - интерфейс лежит в Domain/, реализация в Infrastructure/, а не наоборот. Если интерфейс протекает (leaky abstraction): принимает SQL-строки, возвращает Eloquent-модели, имеет метод getQueryBuilder(): Builder - high-level код становится зависим от деталей low-level через "формально интерфейс". Признаки протечки: меняешь реализацию (PostgreSQL → DynamoDB) и интерфейс приходится переписывать; в high-level коде видны use Illuminate\\Support\\Collection или другие классы конкретной библиотеки; интерфейс учит "как делать", а не "что нужно". Senior-формулировка Боба Мартина: интерфейсы принадлежат вызывающему коду, не реализующему - therefore интерфейс UserRepository живёт рядом с use case-ами, которые им пользуются, а не рядом с EloquentUserRepository.',
+                'code_example' => '<?php
+// ❌ Leaky abstraction - интерфейс протекает деталями реализации
+namespace App\Infrastructure\Persistence;
+
+interface MySqlUserRepository {
+    public function findBySql(string $sql): array; // SQL утечка
+    public function getQueryBuilder(): Builder;    // Eloquent в контракте
+    public function rawConnection(): PDO;          // PDO в контракте
+}
+// Контроллер, использующий это, фактически зависит от MySQL/Eloquent
+
+// ✅ Чистый DIP - интерфейс принадлежит домену, говорит на его языке
+namespace App\Domain\Users;
+
+interface UserRepository {
+    public function findById(UserId $id): ?User;
+    public function findActive(): array;          // /** @return User[] */
+    public function save(User $user): void;
+    public function delete(UserId $id): void;
+}
+
+// Реализация на инфраструктурной стороне - её можно менять
+namespace App\Infrastructure\Persistence;
+final class EloquentUserRepository implements \App\Domain\Users\UserRepository {
+    public function findById(UserId $id): ?User {
+        $row = UserModel::find((string) $id);
+        return $row ? $this->toDomain($row) : null;
+    }
+    // ...
+}',
+                'code_language' => 'php',
+            ],
         ];
     }
 }

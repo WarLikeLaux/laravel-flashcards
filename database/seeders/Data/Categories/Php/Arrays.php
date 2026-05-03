@@ -364,6 +364,39 @@ $arr = array_values(array_filter($arr, fn($_, $i) => $i !== 2,
                 'difficulty' => 3,
                 'topic' => 'php.arrays',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Почему array_shift медленный и какие быстрые альтернативы без SPL?',
+                'answer' => 'array_shift($arr) удаляет ПЕРВЫЙ элемент массива и возвращает его, при этом РЕИНДЕКСИРУЕТ все целочисленные ключи (сдвигает 1→0, 2→1, ... N→N-1). Это O(N) на каждый вызов: на массиве из 100 000 элементов цикл while ($x = array_shift($arr)) даст квадратичную сложность O(N²). Та же проблема у array_unshift (вставка в начало). Решения: 1) Если порядок важен и SPL доступен - SplDoublyLinkedList / SplQueue с O(1) на голову/хвост. 2) Без SPL и если можно поменять направление обхода - array_reverse один раз (O(N)), а потом array_pop в цикле: array_pop удаляет последний элемент за O(1) без реиндексации; total = O(N). 3) Просто индекс-переменная: $i = 0; while ($i < count($arr)) { $x = $arr[$i++]; ... } - не мутирует массив вообще, O(1) на итерацию, но не освобождает память. 4) end()/prev() с встроенным указателем массива - тоже O(1) на ход, но мутируют внутренний pointer, что чревато сюрпризами при вложенной итерации. Senior-приём: помнить, что array_shift/unshift - O(N), и для очередей FIFO с большим N брать SPL или реверс+pop.',
+                'code_example' => '<?php
+// ❌ O(N²) - каждое array_shift сдвигает все индексы
+$queue = range(1, 100000);
+while (count($queue) > 0) {
+    $task = array_shift($queue); // O(N) на каждой итерации
+    process($task);
+}
+// На 100k элементов - десятки секунд
+
+// ✅ O(N) total - один раз reverse, дальше pop с конца
+$queue = range(1, 100000);
+$queue = array_reverse($queue); // O(N) один раз
+while (count($queue) > 0) {
+    $task = array_pop($queue);   // O(1) - снимает с конца, не сдвигает
+    process($task);
+}
+// Те же 100k - доли секунды
+
+// ✅ Альтернатива - SPL с O(1) на оба конца
+$queue = new SplQueue();
+foreach (range(1, 100000) as $n) $queue->enqueue($n);
+while (!$queue->isEmpty()) {
+    $task = $queue->dequeue(); // O(1)
+    process($task);
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'php.arrays',
+            ],
         ];
     }
 }

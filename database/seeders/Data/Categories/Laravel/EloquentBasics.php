@@ -341,6 +341,48 @@ User::whereIntegerInRaw("id", $userIds)->get();',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_basics',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Почему $model->save() может ТИХО вернуть false и в коде "ничего не сохранилось"?',
+                'answer' => 'Малоизвестная боль Eloquent: save() возвращает bool. В happy-path - true (запись создана/обновлена). НО save() возвращает false БЕЗ ИСКЛЮЧЕНИЯ, если любой из listener-ов событий saving / creating / updating вернул false. Это поведение fireModelEvent: false из любого подписчика = veto, операция отменяется. Аналогично для delete() - false из deleting отменяет удаление. Симптом в проде: разработчик пишет $user->save() и не проверяет результат - объект как будто сохранился (никаких ошибок), но в БД ничего не появилось. Чаще всего ловят: Observer/listener вернул void (а PHP void в bool-контексте дает false вместо обычного "ничего не возвращать") - до PHP 7.1 это было особенно частой ловушкой; явный return false для условной валидации в Observer (например, "не сохранять, если у юзера баланс отрицательный"); глобальный saving handler от какого-нибудь пакета (audit-log, activity), который не хочет писать конкретный тип записи. Решения: 1) ВСЕГДА проверять результат save()/delete() - if (!$user->save()) throw new RuntimeException(); 2) Использовать saveOrFail()/deleteOrFail() - бросают исключение при false (внутри транзакции); 3) В Observer-ах не возвращать ничего (return; явно) или return true; 4) При код-ревью observer-ов - явно проверять, что в коде нет случайного return false из логирующей логики.',
+                'code_example' => '<?php
+// ❌ Тихий баг
+class UserObserver {
+    public function saving(User $user) {
+        if ($user->balance < 0) {
+            return false; // veto - save() вернёт false
+        }
+        // забыли явный return - в некоторых случаях даст null/void
+    }
+}
+
+// Где-то в контроллере - без проверки
+$user->balance = -100;
+$user->save();         // false, но никто не узнает
+return response()->json($user); // пользователь видит "успех", в БД ничего
+
+// ✅ Гарантия исключения
+$user->balance = -100;
+$user->saveOrFail();   // ModelNotSavedException
+
+// ✅ Или ручная проверка
+if (! $user->save()) {
+    throw new \RuntimeException("Не удалось сохранить пользователя (veto observer-а)");
+}
+
+// ✅ Observer без случайного false
+class UserObserver {
+    public function saving(User $user): void {
+        if ($user->balance < 0) {
+            throw new InvalidStateException("balance < 0"); // явно, а не false
+        }
+        // void возврат из метода с : void - safe
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
         ];
     }
 }

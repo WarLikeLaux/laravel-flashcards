@@ -393,6 +393,75 @@ class AreaCalculator implements Visitor
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'difficulty' => 4,
+                'question' => 'Strategy в реальном CRUD: как избавиться от switch по типу доставки (СДЭК / Почта России / курьер) в контроллере?',
+                'answer' => 'Канонический senior-пример Strategy - не сортировка, а реальный бизнес-кейс. Антипаттерн: контроллер switch-ит по строке "method" и сам считает стоимость каждого способа - нарушение SRP (контроллер про HTTP, не про калькуляцию), нарушение OCP (новый перевозчик = правка контроллера), невозможность изолированного unit-теста стратегии. Strategy: вынести каждый способ в отдельный класс с общим интерфейсом ShippingCalculator { supports(string $method): bool; calculate(Order $order): Money }, контроллер инжектит коллекцию или резолвер и просто делегирует. В Laravel это нативно через container tagging: $app->tag([CdekCalculator, PostCalculator, ...], "shipping") + $app->tagged("shipping"). Бонусы: новый перевозчик = новый класс, тестируешь каждую стратегию unit-тестом без HTTP, мок в тестах одной строкой; в проде можно динамически включать/выключать стратегии по фиче-флагу.',
+                'code_example' => '<?php
+// ❌ Антипаттерн - switch внутри контроллера
+class CheckoutController {
+    public function shippingCost(Request $r): JsonResponse {
+        switch ($r->input("method")) {
+            case "cdek":    $cost = $r->weight * 50; break;
+            case "post":    $cost = max(300, $r->weight * 30); break;
+            case "courier": $cost = 500; break;
+            default: throw new InvalidArgumentException();
+        }
+        return response()->json(["cost" => $cost]);
+    }
+}
+
+// ✅ Strategy - каждый способ в отдельном классе
+interface ShippingCalculator {
+    public function supports(string $method): bool;
+    public function calculate(Order $order): Money;
+}
+
+final class CdekCalculator implements ShippingCalculator {
+    public function supports(string $m): bool { return $m === "cdek"; }
+    public function calculate(Order $o): Money {
+        return Money::rub($o->totalWeight() * 50);
+    }
+}
+
+final class RussianPostCalculator implements ShippingCalculator {
+    public function supports(string $m): bool { return $m === "post"; }
+    public function calculate(Order $o): Money {
+        return Money::rub(max(300, $o->totalWeight() * 30));
+    }
+}
+
+final class ShippingResolver {
+    /** @param iterable<ShippingCalculator> $calculators */
+    public function __construct(private iterable $calculators) {}
+    public function for(string $method): ShippingCalculator {
+        foreach ($this->calculators as $c) {
+            if ($c->supports($method)) return $c;
+        }
+        throw new InvalidArgumentException("Unknown shipping: $method");
+    }
+}
+
+// AppServiceProvider::register
+$this->app->tag(
+    [CdekCalculator::class, RussianPostCalculator::class, CourierCalculator::class],
+    "shipping"
+);
+$this->app->bind(
+    ShippingResolver::class,
+    fn ($app) => new ShippingResolver($app->tagged("shipping"))
+);
+
+// Тонкий контроллер
+class CheckoutController {
+    public function shippingCost(Request $r, ShippingResolver $resolver): JsonResponse {
+        $cost = $resolver->for($r->input("method"))->calculate($r->user()->cartOrder());
+        return response()->json(["cost" => $cost->amount()]);
+    }
+}',
+                'code_language' => 'php',
+            ],
         ];
     }
 }
