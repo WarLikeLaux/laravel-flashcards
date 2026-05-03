@@ -13,7 +13,7 @@ class Collections
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое Collections в Laravel?',
-                'answer' => 'Collection - это обёртка вокруг массива с десятками методов: map, filter, reduce, pluck, where, groupBy, sortBy, chunk и т.д. Простыми словами: "удобный" массив с цепочкой методов как в JavaScript. Все Eloquent-результаты возвращаются как Collection.',
+                'answer' => 'Collection - это обёртка вокруг массива с десятками методов: map, filter, reduce, pluck, where, groupBy, sortBy, chunk и т.д. Простыми словами: "удобный" массив с цепочкой методов как в JavaScript. Что возвращает Eloquent: get() / all() / find() с массивом id - Eloquent\\Collection (наследник Support\\Collection с моделями); cursor() / lazy() / lazyById() - LazyCollection (ленивая, не материализует все записи в памяти); paginate() / simplePaginate() / cursorPaginate() - LengthAwarePaginator / Paginator / CursorPaginator (НЕ Collection, отдельный объект с метаданными пагинации); chunk() / chunkById() / each() - не возвращают, передают порции в callback. Фраза "все Eloquent-результаты - Collection" неточна: cursor и paginate отдают другие типы.',
                 'code_example' => 'collect([1, 2, 3, 4])
     ->filter(fn($n) => $n % 2 === 0)
     ->map(fn($n) => $n * 10)

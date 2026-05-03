@@ -73,7 +73,7 @@ class Performance
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое N+1 запросы и как их избегать?',
-                'answer' => 'N+1 - антипаттерн: 1 запрос за списком + N запросов за связанными данными для каждого элемента. Например, $posts = Post::all(); foreach ($posts as $p) echo $p->author->name - 1 SELECT posts + N SELECT users. На 1000 постов - 1001 запрос вместо 2. Решение: eager loading (Post::with("author")->get() даёт 2 запроса через WHERE IN). Диагностика: Laravel Debugbar, Telescope, Pulse, или Model::preventLazyLoading() в проде. В GraphQL аналог - DataLoader (батчит и дедуплицирует загрузки в рамках одного запроса).',
+                'answer' => 'N+1 - антипаттерн: 1 запрос за списком + N запросов за связанными данными для каждого элемента. Например, $posts = Post::all(); foreach ($posts as $p) echo $p->author->name - 1 SELECT posts + N SELECT users. На 1000 постов - 1001 запрос вместо 2. Решение: eager loading (Post::with("author")->get() даёт 2 запроса через WHERE IN). Диагностика: Laravel Debugbar, Telescope, Pulse, или Model::preventLazyLoading(! $this->app->isProduction()) в AppServiceProvider - включается в локальной/тестовой среде, чтобы любой lazy load валил LazyLoadingViolationException ДО прода; в самом проде НЕ включают, иначе случайный lazy уронит юзеру 500. В GraphQL аналог - DataLoader (батчит и дедуплицирует загрузки в рамках одного запроса).',
                 'code_example' => '<?php
 // плохо: N+1
 $posts = Post::all();
