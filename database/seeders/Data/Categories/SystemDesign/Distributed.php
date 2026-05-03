@@ -22,7 +22,7 @@ class Distributed
             [
                 'category' => 'Архитектура систем',
                 'question' => 'Что такое PACELC?',
-                'answer' => 'PACELC - расширение CAP. При partition (P) выбираешь между A и C (как в CAP). Else (E), даже без сбоев, выбираешь между Latency (L) и Consistency (C). Простыми словами: даже когда сеть работает, синхронизация между репликами тратит время - либо ждём подтверждения от всех (медленнее, консистентно), либо отвечаем сразу (быстро, но возможна eventual consistency). DynamoDB - PA/EL, MongoDB - PA/EC.',
+                'answer' => 'PACELC - расширение CAP. При partition (P) выбираешь между A и C (как в CAP). Else (E), даже без сбоев, выбираешь между Latency (L) и Consistency (C). Простыми словами: даже когда сеть работает, синхронизация между репликами тратит время - либо ждём подтверждения от всех (медленнее, консистентно), либо отвечаем сразу (быстро, но возможна eventual consistency). DynamoDB - PA/EC по дефолту (eventual reads, но через ConsistentRead=true можно получить strongly consistent reads на отдельный запрос - тогда поведение ближе к PC); MongoDB - PA/EC, тоже tunable через read concern. Cassandra - PA/EL для базовых операций.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 5,

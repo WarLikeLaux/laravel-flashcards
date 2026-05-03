@@ -47,7 +47,7 @@ Route::middleware([\'auth\', \'verified\', \'subscribed\'])->group(function () {
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое terminate middleware?',
-                'answer' => 'Terminate middleware - это middleware, у которого есть метод terminate(), вызываемый ПОСЛЕ отправки ответа пользователю. Используется для тяжёлых задач, которые не должны блокировать ответ: логирование, очистка ресурсов, аналитика. Работает только с FastCGI и не работает на встроенном PHP-сервере.',
+                'answer' => 'Terminate middleware - middleware с методом terminate(), вызываемым ПОСЛЕ отправки ответа клиенту. Подходит для ЛЁГКОЙ постобработки, которая не должна задерживать ответ: запись access-логов, метрики, лёгкая аналитика, очистка request-scoped ресурсов. Работает только при FastCGI (PHP-FPM): PHP через fastcgi_finish_request() закрывает соединение с клиентом, и terminate() выполняется в том же процессе до его освобождения; на встроенном PHP-сервере и при некоторых SAPI не работает. ВАЖНО: terminate - НЕ замена очередям. Тяжёлые операции (внешние HTTP-вызовы платёжному шлюзу, отправка почты, генерация PDF, долгая аналитика) держат воркер занятым и снижают throughput пула; для них нужен queue/job. Также terminate не запустится, если процесс убили kill -9 / OOM / сегфолтом до его вызова - так что это не гарантия доставки.',
                 'code_example' => 'class LogRequestMiddleware {
     public function handle($request, Closure $next) {
         return $next($request);

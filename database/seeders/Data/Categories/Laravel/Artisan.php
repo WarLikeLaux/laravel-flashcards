@@ -46,7 +46,7 @@ php artisan optimize',
             [
                 'category' => 'Laravel',
                 'question' => 'Что делают artisan optimize, route:cache, config:cache, view:cache?',
-                'answer' => 'config:cache - объединяет все config-файлы в один кеш. route:cache - кеширует роуты в один файл. view:cache - предкомпилирует Blade-шаблоны. event:cache - кеширует события. optimize - вызывает несколько кешей сразу. Все вместе ускоряют работу в продакшене. После деплоя нужно выполнить, после изменений - сбросить (config:clear).',
+                'answer' => 'config:cache - объединяет все config-файлы в один кеш. route:cache - кеширует роуты в один файл. view:cache - предкомпилирует Blade-шаблоны. event:cache - кеширует события. optimize - вызывает несколько кешей сразу. Все вместе ускоряют работу в продакшене. После деплоя нужно выполнить, после изменений - сбрасывать СООТВЕТСТВУЮЩИЙ кеш или все сразу через optimize:clear (это объединяет config:clear, route:clear, view:clear, event:clear, cache:clear). Частая ошибка - запустить только config:clear после правок и удивляться, что закешированные роуты/вьюхи всё ещё старые: каждый clear сбрасывает только свой кеш.',
                 'code_example' => 'php artisan config:cache
 php artisan route:cache
 php artisan view:cache

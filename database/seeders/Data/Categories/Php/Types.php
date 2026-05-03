@@ -42,7 +42,7 @@ function abort(string $msg): never {
             [
                 'category' => 'PHP',
                 'question' => 'Что такое readonly свойства и классы?',
-                'answer' => 'readonly свойство (PHP 8.1+) можно записать только один раз - в конструкторе или при инициализации. После этого попытка изменить - Error. Идеально для immutable value objects. readonly класс (PHP 8.2+) - все свойства автоматически readonly. Ограничения: только типизированные свойства, нельзя статические, при клонировании можно создать "обновлённую" копию через withFn pattern с clone.',
+                'answer' => 'readonly свойство (PHP 8.1+) можно записать ровно один раз из области видимости класса (обычно в конструкторе, но не строго только там). После первой записи попытка изменить - Error. Идеально для immutable value objects. readonly класс (PHP 8.2+) - все нестатические свойства автоматически readonly. Ограничения: только типизированные свойства, нельзя статические. До PHP 8.3 для "обновлённой" копии нужен был wither-метод, возвращающий new self(...) (clone не помогал, потому что присваивание новому свойству копии было запрещено). С PHP 8.3 readonly можно переинициализировать ВНУТРИ __clone() - появилось clone with: clone $obj и присвоение через __clone обновляет копию, оставляя оригинал нетронутым.',
                 'code_example' => '<?php
 class Point {
     public function __construct(
@@ -50,17 +50,28 @@ class Point {
         public readonly float $y,
     ) {}
 
-    // Immutable update через clone
+    // ✅ Wither-метод - работает на любой версии 8.1+
     public function withX(float $x): self {
-        $clone = clone $this;
-        // В PHP 8.3 можно изменить readonly при клонировании!
-        // (через __clone) - до этого нужен new self()
         return new self($x, $this->y);
     }
 }
 
 $p = new Point(1, 2);
 // $p->x = 5; // Error: cannot modify readonly
+
+// ✅ PHP 8.3 - можно переинициализировать readonly в __clone
+class Point83 {
+    public function __construct(
+        public readonly float $x,
+        public readonly float $y,
+    ) {}
+
+    public function withX(float $x): self {
+        $clone = clone $this;
+        $clone->x = $x; // OK в __clone-сегменте, разрешено с 8.3
+        return $clone;
+    }
+}
 
 // PHP 8.2 readonly class
 readonly class Coordinates {

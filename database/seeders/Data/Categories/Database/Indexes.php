@@ -143,7 +143,7 @@ SQL,
             [
                 'category' => 'Базы данных',
                 'question' => 'Что такое selectivity и cardinality?',
-                'answer' => 'Cardinality - количество уникальных значений в столбце. Selectivity - доля строк, удовлетворяющих условию (от 0 до 1). Чем выше cardinality и ниже selectivity (мало строк подходит) - тем эффективнее индекс. Индекс на bool-столбце обычно бесполезен (cardinality = 2). Индекс на email - очень эффективен.',
+                'answer' => 'Терминология часто путается на собеседованиях, потому что слово "selectivity" используют в ДВУХ разных смыслах: 1) Predicate selectivity (selectivity предиката) - доля строк таблицы, проходящих фильтр (от 0 до 1). Чем НИЖЕ predicate selectivity (мало подходит) - тем эффективнее индекс под этот конкретный запрос: меньше строк читать. WHERE id = 5 на pk - selectivity ~ 1/N (отлично для индекса); WHERE active = true где 90% активных - selectivity 0.9 (индекс почти бесполезен, оптимизатор уйдёт в Seq Scan). 2) Column selectivity (= cardinality / N, "избирательность колонки") - насколько разнообразны значения. ВЫШЕ - обычно лучше для индексирования. Cardinality - просто число уникальных значений. Индекс на bool-столбце обычно бесполезен (cardinality = 2, низкая column selectivity). Индекс на email - отличный (high cardinality ≈ high column selectivity). Связь: predicate selectivity на equality по уникальной колонке = 1/cardinality. На собесе уточните, в каком смысле спрашивают - чтобы не запутаться "ниже-лучше" vs "выше-лучше".',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 4,

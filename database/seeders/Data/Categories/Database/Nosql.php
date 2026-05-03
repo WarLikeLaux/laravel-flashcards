@@ -40,7 +40,8 @@ LPUSH queue "task1"
 RPOP queue
 
 ZADD leaderboard 100 "alice" 200 "bob"
-ZREVRANGE leaderboard 0 9 WITHSCORES
+# ZREVRANGE deprecated с Redis 6.2 - используйте ZRANGE с REV
+ZRANGE leaderboard 0 9 REV WITHSCORES
 
 INCR page:home:views
 EXPIRE page:home:views 60

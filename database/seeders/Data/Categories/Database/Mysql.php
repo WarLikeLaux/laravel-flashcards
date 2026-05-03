@@ -45,7 +45,7 @@ SQL,
             [
                 'category' => 'Базы данных',
                 'question' => 'REPEATABLE READ в InnoDB и gap locks?',
-                'answer' => 'В стандарте SQL уровень REPEATABLE READ защищает от non-repeatable read, но не от phantoms. В InnoDB же REPEATABLE READ защищает и от phantoms за счёт gap locks - блокировок на "промежутках" между значениями индекса. Поэтому SELECT FOR UPDATE WHERE x BETWEEN 5 AND 10 заблокирует не только существующие строки, но и возможные новые. Это уникальная особенность InnoDB.',
+                'answer' => 'В стандарте SQL уровень REPEATABLE READ защищает от non-repeatable read, но не от phantoms. В InnoDB на REPEATABLE READ механизм ДВОЙНОЙ и зависит от типа чтения. (1) Для CONSISTENT READS (обычный SELECT без FOR UPDATE / LOCK IN SHARE MODE) phantom-ы исключены за счёт MVCC-снимка: транзакция читает на момент первого SELECT, новые строки от других транзакций для неё просто не существуют - блокировки тут ни при чём. (2) Для LOCKING READS (SELECT ... FOR UPDATE / LOCK IN SHARE MODE, UPDATE/DELETE по диапазону) включаются next-key и gap locks - блокировки на "промежутках" между значениями индекса. SELECT * FROM t WHERE x BETWEEN 5 AND 10 FOR UPDATE заблокирует не только существующие строки, но и пустые промежутки - вторая транзакция не сможет вставить x=7. Это и предотвращает фантомы для locking reads. ВАЖНО: gap locks - частая причина неожиданных deadlock-ов под нагрузкой; на READ COMMITTED InnoDB их отключает (только row locks), но тогда фантомы возможны и для locking reads тоже. Уникальная особенность InnoDB - именно сочетание MVCC + gap locks на одном уровне изоляции.',
                 'code_example' => null,
                 'code_language' => null,
                 'difficulty' => 5,
