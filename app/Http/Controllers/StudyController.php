@@ -177,16 +177,16 @@ class StudyController extends Controller
     {
         $modes = ['reveal'];
 
-        $sameTopicOrCategory = Flashcard::query()
+        $categoryCount = Flashcard::query()
             ->where('id', '!=', $card->id)
-            ->where(fn (Builder $q) => $this->scopeNeighbors($q, $card))
+            ->where('category', $card->category)
             ->count();
 
-        if ($sameTopicOrCategory >= 1) {
+        if ($categoryCount >= 1) {
             $modes[] = 'true_false';
         }
 
-        if ($sameTopicOrCategory >= 3) {
+        if ($categoryCount >= 3) {
             $modes[] = 'multiple_choice';
         }
 
@@ -205,15 +205,6 @@ class StudyController extends Controller
         return $modes;
     }
 
-    private function scopeNeighbors(Builder $q, Flashcard $card): Builder
-    {
-        if ($card->topic !== null) {
-            return $q->where('topic', $card->topic);
-        }
-
-        return $q->where('category', $card->category);
-    }
-
     /**
      * @return array{answer: string, is_correct: bool}
      */
@@ -225,9 +216,15 @@ class StudyController extends Controller
             return ['answer' => $card->answer, 'is_correct' => true];
         }
 
-        $distractor = $this->neighborQuery($card)
-            ->inRandomOrder()
-            ->first();
+        $distractor = $this->neighborQuery($card)->inRandomOrder()->first();
+
+        if ($distractor === null && $card->topic !== null) {
+            $distractor = Flashcard::query()
+                ->where('id', '!=', $card->id)
+                ->where('category', $card->category)
+                ->inRandomOrder()
+                ->first();
+        }
 
         if ($distractor === null) {
             return ['answer' => $card->answer, 'is_correct' => true];
@@ -286,7 +283,19 @@ class StudyController extends Controller
             ->whereNotNull('assemble_chunks')
             ->inRandomOrder()
             ->limit(5)
-            ->get()
+            ->get();
+
+        if ($distractors->isEmpty() && $card->topic !== null) {
+            $distractors = Flashcard::query()
+                ->where('id', '!=', $card->id)
+                ->where('category', $card->category)
+                ->whereNotNull('assemble_chunks')
+                ->inRandomOrder()
+                ->limit(5)
+                ->get();
+        }
+
+        $chunks = $distractors
             ->flatMap(fn (Flashcard $c) => (array) $c->assemble_chunks)
             ->reject(fn (string $chunk) => in_array($chunk, $correct, true))
             ->unique()
@@ -295,7 +304,7 @@ class StudyController extends Controller
             ->values()
             ->all();
 
-        $pool = collect([...$correct, ...$distractors])
+        $pool = collect([...$correct, ...$chunks])
             ->shuffle()
             ->values()
             ->all();

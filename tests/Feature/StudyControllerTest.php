@@ -67,6 +67,29 @@ it('builds multiple_choice options including the right answer', function (): voi
         ->toContain('multiple_choice');
 });
 
+it('enables multiple_choice when topic is tiny but category has neighbors', function (): void {
+    Flashcard::factory()->create([
+        'category' => 'PHP',
+        'topic' => 'php.tiny',
+        'question' => 'Q',
+    ]);
+    Flashcard::factory()->create([
+        'category' => 'PHP',
+        'topic' => 'php.tiny',
+    ]);
+    Flashcard::factory()->count(5)->create([
+        'category' => 'PHP',
+        'topic' => 'php.other',
+    ]);
+
+    $modes = collect();
+    for ($i = 0; $i < 80; $i++) {
+        $modes->push(studyMode($this->get(route('study.show'))));
+    }
+
+    expect($modes->unique()->values()->all())->toContain('multiple_choice');
+});
+
 it('marks a card correct via the answer endpoint after three distinct modes', function (): void {
     $card = Flashcard::factory()->create();
 
