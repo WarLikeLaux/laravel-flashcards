@@ -576,6 +576,63 @@ User::with("lastLogin")->get();',
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_advanced',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Почему массовый UPDATE через Query Builder/Model::where->update НЕ триггерит события Eloquent (saving/updating/saved/updated)?',
+                'answer' => 'Очень частая боль уровня middle/senior. Когда вы вызываете $model->save() / $model->update($data) / $model->delete() на КОНКРЕТНОМ инстансе - Eloquent проходит через весь lifecycle: events (saving, updating, saved, updated), observers, мутаторы, $casts, апдейт updated_at, индексы Scout (Searchable), broadcasting. А когда вы делаете BULK-операцию через query builder вида User::where("active", false)->update(["status" => "archived"]) или Post::where(...)->delete() - это превращается в одиночный SQL "UPDATE ... WHERE / DELETE ... WHERE", который улетает в БД минуя инстансы моделей. Никаких событий, наблюдателей, мутаторов, обновления Scout-индекса, рассылки broadcast - ничего. Классический баг: бизнес-логика "при архивации юзера отправь email" висит в наблюдателе UserObserver::updated; разработчик пишет batch-скрипт User::where(...)->update(["status" => "archived"]) - письма не уходят, никто не замечает месяцами. Решения: 1) если важны события - foreach с $u->update() или $u->save() (медленнее, но lifecycle цел); 2) chunk-обработка: User::where(...)->chunkById(500, fn ($users) => $users->each->update([...])) - компромисс между скоростью и тем, что события сработают; 3) если bulk важен по скорости - сознательно дублируем нужные побочные эффекты (Scout::reindex, явный dispatch события) после массового запроса. То же самое верно для DB::table(...)->update(): query builder событий моделей не знает в принципе. Проверяйте: если рядом с update лежит observer/cast/Scout - ищите явный foreach или дозированный bulk.',
+                'code_example' => '<?php
+// ❌ События НЕ сработают - observer молчит
+User::where("last_login_at", "<", now()->subYear())
+    ->update(["status" => "inactive"]);
+
+// ❌ То же самое - DB::table напрямую
+DB::table("users")
+    ->where("last_login_at", "<", now()->subYear())
+    ->update(["status" => "inactive"]);
+
+// ✅ Полный lifecycle - но N запросов вместо 1
+User::where("last_login_at", "<", now()->subYear())
+    ->each(fn (User $u) => $u->update(["status" => "inactive"]));
+
+// ✅ Компромисс - chunk-ом, события работают, запросов меньше
+User::where("last_login_at", "<", now()->subYear())
+    ->chunkById(500, function ($chunk) {
+        $chunk->each->update(["status" => "inactive"]);
+    });
+
+// ✅ Bulk + явный side effect, если события дешевле дублировать
+User::where(...)->update([...]);
+event(new UsersDeactivated($affectedIds));
+User::whereIn("id", $affectedIds)->searchable(); // если нужен Scout',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Когда выгоднее DB::table вместо Eloquent? Цена гидратации моделей.',
+                'answer' => 'Eloquent на каждый ряд из БД создаёт полноценный объект Model: вызывает конструктор, наполняет $original/$attributes, прогоняет $casts, регистрирует наблюдателей, готовит lazy load связей. Для одной записи это ~10-30 микросекунд + ~2-3 КБ памяти на объект; на 50 000 строк это уже секунды и сотни МБ - реальный риск Out of Memory. Senior-правило: если результат запроса - это просто "массив скалярных строк, которые надо отдать дальше / посчитать / экспортировать в CSV", а методы и связи модели не нужны - используй DB::table("users")->select(...)->get() или ->cursor(). Возвращаются stdClass-объекты, никаких events, casts, мутаторов - в разы быстрее и меньше памяти. Когда оставить Eloquent: когда нужны связи (with), мутаторы/casts, бизнес-методы модели ($user->canDoX()), события/observers, или результат маленький. Промежуточный вариант: ->cursor() / ->lazy() возвращает по одной записи через генератор - O(1) памяти, но всё ещё гидратирует модели; ->toBase() на Eloquent-Builder - скастует результат к stdClass и пропустит гидратацию.',
+                'code_example' => '<?php
+// ❌ Из 100k юзеров - OOM на 512МБ воркере
+$emails = User::all()->pluck("email")->toArray();
+
+// ✅ Без гидратации, в разы быстрее и без OOM
+$emails = DB::table("users")->pluck("email")->toArray();
+
+// ✅ Стрим через cursor - O(1) памяти, но гидратирует модели
+foreach (User::cursor() as $u) {
+    sendDigest($u);
+}
+
+// ✅ toBase() - eloquent-builder, но без модели на выходе
+foreach (User::query()->where(...)->toBase()->cursor() as $row) {
+    // $row - stdClass, нет casts/мутаторов/связей
+    echo $row->email;
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
         ];
     }
 }

@@ -131,6 +131,45 @@ class StripeGateway implements PaymentGateway
 }',
                 'code_language' => 'php',
             ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.four_principles',
+                'difficulty' => 4,
+                'question' => 'Можно ли из метода объекта класса A обратиться к private-свойству ДРУГОГО объекта того же класса A?',
+                'answer' => 'Да - и это часто удивляет на собесе. В PHP (как и в Java/C#/C++) модификаторы видимости работают на уровне КЛАССА, а не на уровне отдельного экземпляра. То есть private значит "доступно изнутри класса, где объявлено", а не "доступно только своему this". Это нужно для канонических операций, которые требуют чтения чужого внутреннего состояния: equals(self $other), compareTo, copy/merge, factory-методов, операций над двумя объектами одного типа (Money::add(Money $other) с доступом к $other->amount). protected расширяет это до иерархии (доступно классу и наследникам); public - всем. Для разделения на уровне инстансов в PHP нет встроенного модификатора - если такая семантика нужна, её эмулируют через публичные геттеры или интерфейс. На собесе: "private = per-class, не per-instance" - короткий правильный ответ.',
+                'code_example' => '<?php
+final class Money
+{
+    public function __construct(
+        private readonly int $amount,
+        private readonly string $currency,
+    ) {}
+
+    public function add(Money $other): self
+    {
+        // ✅ Доступ к private $other->amount и $other->currency - ОК
+        // т.к. мы внутри методов того же класса Money
+        if ($this->currency !== $other->currency) {
+            throw new InvalidArgumentException("currency mismatch");
+        }
+        return new self($this->amount + $other->amount, $this->currency);
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->amount === $other->amount
+            && $this->currency === $other->currency;
+    }
+}
+
+$a = new Money(100, "USD");
+$b = new Money(50,  "USD");
+$c = $a->add($b);  // 150 USD - читать $b->amount можно
+
+// Из ВНЕШНЕГО кода private так не достать:
+// echo $a->amount; // Error: Cannot access private property',
+                'code_language' => 'php',
+            ],
         ];
     }
 }

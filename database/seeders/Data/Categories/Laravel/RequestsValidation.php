@@ -114,6 +114,37 @@ class StoreUserRequest extends FormRequest {
                 'difficulty' => 4,
                 'topic' => 'laravel.requests_validation',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Как валидировать вложенные массивы и поля внутри них в Laravel (items.*.id, items.*.qty)?',
+                'answer' => 'Laravel поддерживает dot-нотацию для вложенных полей и звёздочку * как универсальный матчер по индексам массива. Базовое: "items" => "required|array|min:1" - сам массив непустой; "items.*.id" => "required|integer|exists:products,id" - КАЖДЫЙ элемент массива должен иметь поле id, существующее в products.id; "items.*.qty" => "required|integer|min:1" - количество позиций. Проверка существования через exists делается ОДНИМ запросом для всех значений (Laravel под капотом делает WHERE id IN (...)). Это критично: наивный foreach с проверкой по одному превратит ~N запросов в БД. Для unique аналогично: "emails.*" => "unique:users,email". Для кастомных messages используется такой же паттерн ключей: "items.*.id.exists" => "продукта :input не существует". Подводный камень: при правиле required_with на вложенном уровне писать "items.*.qty" => "required_with:items.*.id" - синтаксис тот же. Для условной валидации зависящей от родителя - withValidator + after callback.',
+                'code_example' => '<?php
+class StoreOrderRequest extends FormRequest {
+    public function rules(): array {
+        return [
+            "customer_id"     => ["required", "integer", "exists:users,id"],
+            "items"           => ["required", "array", "min:1", "max:100"],
+            "items.*.id"      => ["required", "integer", "exists:products,id"],
+            "items.*.qty"     => ["required", "integer", "min:1"],
+            "items.*.note"    => ["nullable", "string", "max:255"],
+            "shipping.city"   => ["required_with:shipping", "string"],
+            "shipping.zip"    => ["required_with:shipping", "regex:/^\\d{6}$/"],
+            "tags"            => ["array"],
+            "tags.*"          => ["string", "distinct"], // distinct - в массиве нет дублей
+        ];
+    }
+
+    public function messages(): array {
+        return [
+            "items.*.id.exists" => "Товар :input не найден",
+            "items.*.qty.min"   => "Минимум 1 шт. в позиции",
+        ];
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.requests_validation',
+            ],
         ];
     }
 }

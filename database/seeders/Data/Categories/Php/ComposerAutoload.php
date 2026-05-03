@@ -825,7 +825,7 @@ class UserDeep {
             [
                 'category' => 'PHP',
                 'question' => 'Что такое строгая типизация (strict_types) в PHP?',
-                'answer' => 'declare(strict_types=1) в начале файла включает строгую типизацию для ВЫЗОВОВ функций из этого файла. Без неё PHP пытается приводить типы (coercive mode): передал "5" в int-параметр - сработает. Со strict_types - TypeError. Действует только на месте вызова, не объявления. Лучшая практика - всегда включать strict_types в начале каждого файла.',
+                'answer' => 'declare(strict_types=1) в начале файла включает строгую типизацию. ВАЖНО про точное место действия (часто путают): для ПАРАМЕТРОВ функции strict_types управляется файлом, в котором стоит ВЫЗОВ - то есть передал "5" в int-параметр в strict-файле получишь TypeError, даже если функция объявлена в файле без strict_types. А вот для ВОЗВРАЩАЕМОГО типа strict_types управляется файлом, где функция ОБЪЯВЛЕНА: если функция в strict-файле объявила `: int` и пытается вернуть "5", получит TypeError независимо от настроек вызывающего. Это две разные точки контроля - параметры читаются от caller, return - от callee. Без strict_types PHP в обоих случаях пытается привести типы (coercive mode): "5" в int-параметре станет 5, "5" из `: int` тоже станет 5. Лучшая практика - всегда включать strict_types в начале каждого файла, чтобы не зависеть от настройки вызывающего.',
                 'code_example' => '<?php
 declare(strict_types=1);
 
@@ -834,8 +834,12 @@ function add(int $a, int $b): int {
 }
 
 add(5, 10);    // 15 - OK
-// add("5", 10);  // TypeError со strict_types
-// add(5.5, 10);  // TypeError - float не int
+// add("5", 10);  // TypeError со strict_types - параметры контролируются caller-ом
+
+// Файл objects/Foo.php (с strict_types=1)
+// function maybeId(): int { return "42"; }
+// → TypeError на return - return контролируется callee
+// (даже если вызвать из файла без strict_types)
 
 // Без strict_types это сработало бы:
 // "5" -> 5, 5.5 -> 5',

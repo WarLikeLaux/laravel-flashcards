@@ -117,6 +117,33 @@ register_shutdown_function(function () {
                 'difficulty' => 4,
                 'topic' => 'php.exceptions',
             ],
+            [
+                'category' => 'PHP',
+                'question' => 'Что делает оператор @ (shut up) и почему кастомный set_error_handler ломается без проверки error_reporting()?',
+                'answer' => 'Оператор @ перед выражением (@file_get_contents("/no/such"), @json_decode($s)) ВРЕМЕННО устанавливает error_reporting() в 0 на время вычисления выражения. Сами warning-и/notice-ы при этом всё равно ГЕНЕРИРУЮТСЯ внутри PHP - просто стандартный обработчик ошибок их игнорирует, потому что error_reporting() пуст. ВАЖНОЕ ВЗАИМОДЕЙСТВИЕ: если вы поставили свой set_error_handler() (например, чтобы превращать warning-и в ErrorException), ваш callback вызывается по-прежнему, даже если выражение под @. Если внутри callback вы наивно throw new ErrorException(...) безусловно - получите исключение там, где legacy-код или фреймворк рассчитывали на тихое подавление через @ (типичные места: file_get_contents() для опционального файла, json_decode() от мусора, fopen() с проверкой результата). Правильный паттерн: внутри error_handler-а проверяйте (error_reporting() & $severity) === 0 и в этом случае возвращайте false (значит "PHP, обрабатывай как обычно, то есть тихо"). Это поведение явно описано в документации set_error_handler. С PHP 8.0 @ больше НЕ подавляет fatal-ошибки и убил часть исторических трюков. Совет: новый код не должен полагаться на @, использовать явные проверки (file_exists, is_resource); кастомный handler писать с error_reporting()-чеком, чтобы не ломать чужие вызовы под @.',
+                'code_example' => '<?php
+// ❌ Плохой error handler - игнорирует @
+set_error_handler(function ($severity, $msg, $file, $line) {
+    throw new ErrorException($msg, 0, $severity, $file, $line);
+});
+
+// Где-то в legacy: рассчитывается на тихий warning при отсутствии файла
+$content = @file_get_contents("/optional/path.json");
+if ($content === false) { /* fallback */ }
+// Из-за наивного handler сюда прилетит ErrorException, fallback не сработает
+
+// ✅ Правильный handler - уважает @
+set_error_handler(function ($severity, $msg, $file, $line) {
+    // если выражение под @ - error_reporting() = 0, не вмешиваемся
+    if ((error_reporting() & $severity) === 0) {
+        return false; // PHP сам решит (т.е. тихо проигнорирует)
+    }
+    throw new ErrorException($msg, 0, $severity, $file, $line);
+});',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'php.exceptions',
+            ],
         ];
     }
 }

@@ -148,6 +148,44 @@ trait Logging
     }
 }',
             ],
+            [
+                'category' => 'ООП',
+                'topic' => 'oop.traits',
+                'difficulty' => 4,
+                'question' => 'Почему свойства внутри трейта (stateful trait) - это антипаттерн?',
+                'answer' => 'Трейт может объявлять не только методы, но и свойства. Технически это работает: при use в классе свойства "копируются" в класс, как будто объявлены прямо в нём. На практике это создаёт проблемы. 1) ОДНА ОБЛАСТЬ ИМЁН: свойство трейта может конфликтовать с одноимённым свойством в классе - получите Fatal error "Class X and Trait Y define the same property ($foo) in the composition". В отличие от методов, для свойств НЕТ операторов insteadof/as - конфликт не разрешить декларативно. 2) ХРУПКОСТЬ РЕФАКТОРИНГА: переименование свойства в трейте сломает все классы-потребители молча, без подсказок IDE. 3) НЕТЕСТИРУЕМОСТЬ: трейт нельзя инстанцировать отдельно; если его поведение опирается на состояние - тест становится тестом конкретного класса-носителя, а не трейта. 4) НАРУШЕНИЕ ИНКАПСУЛЯЦИИ: внешний код, читая класс, не видит без раскрытия трейта, какие у него поля и инварианты. 5) В трейте нельзя нормально объявить КОНСТРУКТОР для инициализации своего состояния - его конструктор конфликтует с конструктором класса/других трейтов. Senior-практика: трейты использовать ТОЛЬКО для методов (Searchable, HasFactory, SoftDeletes - либо stateless, либо опираются на конвенции типа "колонка deleted_at"). Если нужно состояние - выносить в отдельный класс и инжектить через композицию.',
+                'code_example' => '<?php
+// ❌ Stateful trait - конфликт свойств
+trait HasCounter {
+    private int $counter = 0;
+    public function tick(): void { $this->counter++; }
+}
+
+class Order {
+    use HasCounter;
+    private int $counter; // Fatal: Class Order and Trait HasCounter define same property
+}
+
+// ✅ Лучше - композиция через отдельный класс
+final class Counter {
+    private int $value = 0;
+    public function tick(): void { $this->value++; }
+    public function value(): int { return $this->value; }
+}
+
+class Order {
+    public function __construct(private Counter $counter = new Counter()) {}
+    public function tick(): void { $this->counter->tick(); }
+}
+
+// ✅ Stateless trait как mixin поведения - безопасно
+trait FormatsMoney {
+    public function asMoney(int $cents): string {
+        return number_format($cents / 100, 2);
+    }
+}',
+                'code_language' => 'php',
+            ],
         ];
     }
 }
