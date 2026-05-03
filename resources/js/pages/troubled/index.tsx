@@ -1,5 +1,12 @@
-import { Head, Link } from '@inertiajs/react';
-import { AlertTriangle, BookOpen, Pencil } from 'lucide-react';
+import { Form, Head, Link } from '@inertiajs/react';
+import {
+    AlertTriangle,
+    BookOpen,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    Pencil,
+} from 'lucide-react';
 import { CategoryBadge } from '@/components/category-badge';
 import { CodeBlock } from '@/components/code-block';
 import { NoteBlock } from '@/components/note-block';
@@ -16,6 +23,7 @@ import { topicLabel } from '@/lib/topic-labels';
 import { cn } from '@/lib/utils';
 import flashcards from '@/routes/flashcards';
 import learn from '@/routes/learn';
+import troubled from '@/routes/troubled';
 import type { Flashcard } from '@/types';
 
 type Metrics = {
@@ -34,14 +42,25 @@ type Row = {
     metrics: Metrics;
 };
 
+type Pagination = {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number;
+    to: number;
+};
+
 type Props = {
     rows: Row[];
+    pagination: Pagination;
     window_days: number;
     min_events: number;
 };
 
 export default function TroubledIndex({
     rows,
+    pagination,
     window_days,
     min_events,
 }: Props) {
@@ -49,23 +68,26 @@ export default function TroubledIndex({
         <>
             <Head title="Проблемные" />
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pt-4 pb-6 sm:px-6 sm:pt-6">
-                <Header rows={rows.length} windowDays={window_days} />
+                <Header total={pagination.total} windowDays={window_days} />
 
                 {rows.length === 0 ? (
                     <EmptyState minEvents={min_events} />
                 ) : (
-                    <div className="flex flex-col gap-3">
-                        {rows.map((row) => (
-                            <TroubledRow key={row.flashcard.id} row={row} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="flex flex-col gap-3">
+                            {rows.map((row) => (
+                                <TroubledRow key={row.flashcard.id} row={row} />
+                            ))}
+                        </div>
+                        <PaginationNav pagination={pagination} />
+                    </>
                 )}
             </div>
         </>
     );
 }
 
-function Header({ rows, windowDays }: { rows: number; windowDays: number }) {
+function Header({ total, windowDays }: { total: number; windowDays: number }) {
     return (
         <div className="flex flex-col gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="flex items-center gap-3">
@@ -85,9 +107,9 @@ function Header({ rows, windowDays }: { rows: number; windowDays: number }) {
             <Badge
                 variant="outline"
                 className="bg-background/60 tabular-nums"
-                title="Всего проблемных в выборке"
+                title="Всего проблемных карточек"
             >
-                {rows} карточек
+                {total} карточек
             </Badge>
         </div>
     );
@@ -131,6 +153,15 @@ function TroubledRow({ row }: { row: Row }) {
                 )}
                 <NoteBlock note={flashcard.note} />
                 <div className="flex flex-wrap gap-2">
+                    <Form
+                        action={troubled.clear(flashcard.id).url}
+                        method="post"
+                    >
+                        <Button type="submit" size="sm">
+                            <Check />
+                            Проработал
+                        </Button>
+                    </Form>
                     <Button asChild size="sm" variant="outline">
                         <Link href={flashcards.edit(flashcard.id).url}>
                             <Pencil />
@@ -234,6 +265,156 @@ function DifficultyBadge({ level }: { level: number }) {
             {'★'.repeat(clamped)}
         </Badge>
     );
+}
+
+function PaginationNav({ pagination }: { pagination: Pagination }) {
+    if (pagination.last_page <= 1) {
+        return null;
+    }
+
+    const pages = pageRange(pagination.current_page, pagination.last_page);
+
+    const buildHref = (n: number) => {
+        const url = troubled.show().url;
+
+        return n > 1 ? `${url}?page=${n}` : url;
+    };
+
+    return (
+        <nav className="mt-2 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <p className="text-xs text-muted-foreground tabular-nums">
+                {pagination.from}–{pagination.to} из {pagination.total}
+            </p>
+            <div className="flex items-center gap-1">
+                <PageLink
+                    href={
+                        pagination.current_page > 1
+                            ? buildHref(pagination.current_page - 1)
+                            : null
+                    }
+                    aria-label="Назад"
+                >
+                    <ChevronLeft className="size-4" />
+                </PageLink>
+                {pages.map((p, i) =>
+                    p === 'ellipsis' ? (
+                        <span
+                            key={`e-${i}`}
+                            className="px-1 text-sm text-muted-foreground"
+                        >
+                            …
+                        </span>
+                    ) : (
+                        <PageNumber
+                            key={p}
+                            href={buildHref(p)}
+                            number={p}
+                            active={p === pagination.current_page}
+                        />
+                    ),
+                )}
+                <PageLink
+                    href={
+                        pagination.current_page < pagination.last_page
+                            ? buildHref(pagination.current_page + 1)
+                            : null
+                    }
+                    aria-label="Вперёд"
+                >
+                    <ChevronRight className="size-4" />
+                </PageLink>
+            </div>
+        </nav>
+    );
+}
+
+function PageLink({
+    href,
+    children,
+    ...rest
+}: {
+    href: string | null;
+    children: React.ReactNode;
+} & React.AriaAttributes) {
+    const className = cn(
+        'inline-flex h-8 min-w-8 items-center justify-center rounded-md border bg-background px-2 text-sm transition-colors',
+        href
+            ? 'hover:bg-accent hover:text-accent-foreground'
+            : 'pointer-events-none opacity-40',
+    );
+
+    if (!href) {
+        return (
+            <span className={className} {...rest}>
+                {children}
+            </span>
+        );
+    }
+
+    return (
+        <Link
+            href={href}
+            preserveScroll={false}
+            preserveState
+            className={className}
+            {...rest}
+        >
+            {children}
+        </Link>
+    );
+}
+
+function PageNumber({
+    href,
+    number,
+    active,
+}: {
+    href: string;
+    number: number;
+    active: boolean;
+}) {
+    return (
+        <Link
+            href={href}
+            preserveScroll={false}
+            preserveState
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+                'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm tabular-nums transition-colors',
+                active
+                    ? 'border bg-foreground text-background'
+                    : 'border bg-background hover:bg-accent hover:text-accent-foreground',
+            )}
+        >
+            {number}
+        </Link>
+    );
+}
+
+function pageRange(current: number, last: number): (number | 'ellipsis')[] {
+    if (last <= 7) {
+        return Array.from({ length: last }, (_, i) => i + 1);
+    }
+
+    const result: (number | 'ellipsis')[] = [1];
+    const start = Math.max(2, current - 1);
+    const end = Math.min(last - 1, current + 1);
+
+    if (start > 2) {
+        result.push('ellipsis');
+    }
+
+    for (let i = start; i <= end; i++) {
+        result.push(i);
+    }
+
+    if (end < last - 1) {
+        result.push('ellipsis');
+    }
+
+    result.push(last);
+
+    return result;
 }
 
 function EmptyState({ minEvents }: { minEvents: number }) {

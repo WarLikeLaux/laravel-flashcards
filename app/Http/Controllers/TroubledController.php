@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flashcard;
+use App\Models\FlashcardEvent;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,9 +31,9 @@ class TroubledController extends Controller
 
     private const MIN_EVENTS = 3;
 
-    private const LIMIT = 50;
+    private const PER_PAGE = 20;
 
-    public function show(): Response
+    public function show(Request $request): Response
     {
         $window = now()->subDays(self::WINDOW_DAYS);
 
@@ -51,15 +54,22 @@ class TroubledController extends Controller
             ->havingRaw($this->badSumExpression().' > 0')
             ->orderByRaw('('.$this->badSumExpression().' * 1.0 / COUNT(*)) DESC')
             ->orderByRaw($this->badSumExpression().' DESC')
-            ->limit(self::LIMIT)
             ->get();
 
+        $totalRows = $stats->count();
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = self::PER_PAGE;
+        $lastPage = (int) max(1, ceil($totalRows / $perPage));
+        $page = min($page, $lastPage);
+
+        $pageStats = $stats->slice(($page - 1) * $perPage, $perPage);
+
         $cards = Flashcard::query()
-            ->whereIn('id', $stats->pluck('flashcard_id'))
+            ->whereIn('id', $pageStats->pluck('flashcard_id'))
             ->get(self::FIELDS)
             ->keyBy('id');
 
-        $rows = $stats
+        $rows = $pageStats
             ->map(function ($stat) use ($cards) {
                 /** @var \App\Models\Flashcard|null $card */
                 $card = $cards->get($stat->flashcard_id);
@@ -90,9 +100,27 @@ class TroubledController extends Controller
 
         return Inertia::render('troubled/index', [
             'rows' => $rows,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $totalRows,
+                'from' => $totalRows === 0 ? 0 : ($page - 1) * $perPage + 1,
+                'to' => $totalRows === 0 ? 0 : min($page * $perPage, $totalRows),
+            ],
             'window_days' => self::WINDOW_DAYS,
             'min_events' => self::MIN_EVENTS,
         ]);
+    }
+
+    public function clear(Flashcard $flashcard): RedirectResponse
+    {
+        FlashcardEvent::query()
+            ->where('flashcard_id', $flashcard->id)
+            ->whereIn('kind', self::BAD_KINDS)
+            ->delete();
+
+        return redirect()->back();
     }
 
     private function badSumExpression(): string

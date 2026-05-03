@@ -139,3 +139,50 @@ it('logs a skipped event when review skip is hit', function (): void {
     expect($event?->kind)->toBe('skipped')
         ->and($event?->flashcard_id)->toBe($card->id);
 });
+
+it('clears bad events for a card via the clear endpoint', function (): void {
+    $card = Flashcard::factory()->create();
+
+    logEvent($card, 'study_incorrect');
+    logEvent($card, 'study_incorrect');
+    logEvent($card, 'skipped');
+    logEvent($card, 'review_forgot');
+    logEvent($card, 'study_correct');
+    logEvent($card, 'review_remember');
+
+    $this->post(route('troubled.clear', $card))->assertRedirect();
+
+    $kinds = FlashcardEvent::query()
+        ->where('flashcard_id', $card->id)
+        ->pluck('kind')
+        ->all();
+
+    expect($kinds)->toBe(['study_correct', 'review_remember']);
+});
+
+it('paginates troubled cards with 20 per page', function (): void {
+    for ($i = 0; $i < 25; $i++) {
+        $card = Flashcard::factory()->create();
+        foreach (range(1, 4) as $_) {
+            logEvent($card, 'study_incorrect');
+        }
+        logEvent($card, 'study_correct');
+    }
+
+    $this->get(route('troubled.show'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('rows', 20)
+            ->where('pagination.current_page', 1)
+            ->where('pagination.last_page', 2)
+            ->where('pagination.total', 25)
+            ->where('pagination.per_page', 20)
+        );
+
+    $this->get(route('troubled.show', ['page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('rows', 5)
+            ->where('pagination.current_page', 2)
+        );
+});

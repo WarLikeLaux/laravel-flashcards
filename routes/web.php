@@ -36,3 +36,4 @@ Route::post('review/{flashcard}/skip', [ReviewController::class, 'skip'])->name(
 Route::get('stats', [StatsController::class, 'show'])->name('stats.show');
 
 Route::get('troubled', [TroubledController::class, 'show'])->name('troubled.show');
+Route::post('troubled/{flashcard}/clear', [TroubledController::class, 'clear'])->name('troubled.clear');
