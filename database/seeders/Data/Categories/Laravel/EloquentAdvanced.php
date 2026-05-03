@@ -171,6 +171,39 @@ Post::onlyTrashed()->get();   // только удалённые',
             ],
             [
                 'category' => 'Laravel',
+                'question' => 'SoftDeletes ломает unique-индекс на email - как это правильно решать?',
+                'answer' => 'Классическая боль: на users.email стоит UNIQUE, юзер регистрируется → удаляет аккаунт (deleted_at заполняется) → пытается зарегистрироваться снова с тем же email → 23000/23505 (duplicate entry), потому что для БД "удалённая" запись физически жива и всё ещё держит email. Eloquent-валидация Rule::unique() умеет игнорировать soft-deleted (->ignore() / whereNull("deleted_at")), но БД-уровень уникальности про SoftDeletes ничего не знает. Решения: 1) PostgreSQL - partial unique index, элегантный путь: CREATE UNIQUE INDEX users_email_active ON users(email) WHERE deleted_at IS NULL. Уникальность проверяется только для живых записей; удалённые могут иметь какие угодно дубли email. В Laravel это $table->unique("email")->where("deleted_at IS NULL") нельзя - надо raw DB::statement в миграции. 2) MySQL/MariaDB - partial index НЕ поддерживается, используют составной UNIQUE (email, deleted_at). НО: в MySQL NULL != NULL для уникальности, поэтому два живых пользователя с deleted_at = NULL пройдут как уникальные - ровно то, что нужно; зато два удалённых с одной и той же datetime в deleted_at дадут конфликт. На практике либо принимают это (одинаковая datetime до миллисекунды редка), либо хранят deleted_at не как NULL/timestamp, а как 0/timestamp и составной индекс работает строго. 3) Альтернатива - hard delete + архивная таблица users_archive (свобода схемы, но теряются связи через foreign key). 4) Альтернатива - анонимизировать email при удалении (email = "deleted_{$id}@example.com"), uniqueness сохраняется естественно. Выбор зависит от: нужно ли восстанавливать аккаунт (тогда не аноним), есть ли GDPR/right-to-be-forgotten (тогда лучше hard delete), какая СУБД.',
+                'code_example' => '<?php
+// Postgres - partial index в миграции
+Schema::create("users", function (Blueprint $t) {
+    $t->id();
+    $t->string("email");
+    $t->softDeletes();
+});
+DB::statement("CREATE UNIQUE INDEX users_email_active
+               ON users (email) WHERE deleted_at IS NULL");
+
+// MySQL - составной UNIQUE; deleted_at NULL для живых
+Schema::table("users", function (Blueprint $t) {
+    $t->unique(["email", "deleted_at"]);
+});
+
+// Анонимизация при удалении (универсальный способ)
+class User extends Model {
+    use SoftDeletes;
+    protected static function booted(): void {
+        static::deleting(function (User $u) {
+            if ($u->isForceDeleting()) return;
+            $u->forceFill(["email" => "deleted_{$u->id}@invalid"])->saveQuietly();
+        });
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
                 'question' => 'Как управлять timestamps в Eloquent?',
                 'answer' => 'По умолчанию у модели есть created_at и updated_at, заполняемые автоматически. Отключить: $timestamps = false. Изменить формат: $dateFormat. Поменять имена: const CREATED_AT, const UPDATED_AT. Точечно отключить обновление updated_at: $model->timestamps = false перед save или метод updateQuietly.',
                 'code_example' => 'class Post extends Model {
@@ -192,7 +225,7 @@ $post->updateQuietly([\'views\' => $post->views + 1]);',
             [
                 'category' => 'Laravel',
                 'question' => 'Что такое chunk, chunkById, lazy и cursor в Eloquent? В чём разница и где ловушка?',
-                'answer' => 'chunk - выбирает по N записей через LIMIT/OFFSET и отдаёт коллекцию в callback. lazy - возвращает LazyCollection, выбирая записи порциями (внутри тоже chunk). cursor - использует серверный SQL-курсор и держит ОДНУ запись в памяти, экономит память сильнее всего, но удерживает соединение и не работает с eager loading. ⚠️ КРИТИЧЕСКАЯ ЛОВУШКА chunk при UPDATE. Если внутри chunk() вы обновляете записи так, что они перестают подпадать под исходное where (например, where("processed", false) и в callback ставите processed=true), произойдёт сдвиг OFFSET и ПОЛОВИНА записей будет ПРОПУЩЕНА. Механика: первый запрос берёт строки 0-999, обновляет их → они уходят из выборки. Второй запрос с OFFSET 1000 теперь начинает с того, что было бы строкой 2000 в исходной выборке - 1000 записей просто пролетают. Для миграций данных и любых обновлений всегда используйте chunkById() (или lazyById()): он использует WHERE id > $lastId вместо нестабильного OFFSET, поэтому устойчив к изменению набора записей. Тот же риск есть в обратную сторону при INSERT в обрабатываемую таблицу. Lazy для просто чтения - ок; для UPDATE - lazyById.',
+                'answer' => 'chunk - выбирает по N записей через LIMIT/OFFSET и отдаёт коллекцию в callback. lazy - возвращает LazyCollection, выбирая записи порциями (внутри тоже chunk). cursor - использует серверный SQL-курсор и держит ОДНУ запись в памяти, экономит память сильнее всего, но удерживает соединение и не работает с eager loading. ⚠️ КРИТИЧЕСКАЯ ЛОВУШКА chunk при UPDATE. Если внутри chunk() вы обновляете записи так, что они перестают подпадать под исходное where (например, where("processed", false) и в callback ставите processed=true), произойдёт сдвиг OFFSET и ПОЛОВИНА записей будет ПРОПУЩЕНА. Механика: первый запрос берёт строки 0-999, обновляет их → они уходят из выборки. Второй запрос с OFFSET 1000 теперь начинает с того, что было бы строкой 2000 в исходной выборке - 1000 записей просто пролетают. Для миграций данных и любых обновлений всегда используйте chunkById() (или lazyById()): он использует WHERE id > $lastId вместо нестабильного OFFSET, поэтому устойчив к изменению набора записей. Тот же риск есть в обратную сторону при INSERT в обрабатываемую таблицу. Lazy для просто чтения - ок; для UPDATE - lazyById. ⚠️ ОТДЕЛЬНОЕ ТРЕБОВАНИЕ chunkById/lazyById: колонка ($column, по умолчанию "id") должна быть СТРОГО МОНОТОННО ВОЗРАСТАЮЩЕЙ И УНИКАЛЬНОЙ. На неуникальной колонке (created_at без секунд, status, datetime с дублями) механизм WHERE column > $lastValue либо ПРОПУСКАЕТ записи с тем же значением, что у границы чанка, либо при сортировке asc и неуникальных значениях зацикливается, обрабатывая ту же группу повторно. Если естественной такой колонки нет - либо chunkById по pk, дополнительно фильтруя нужный where, либо chunkByIdDesc для обратного направления, либо вручную делать пагинацию через "WHERE (sort_col, id) > (?, ?)" (keyset pagination на составном ключе).',
                 'code_example' => '<?php
 // ❌ Опасно: chunk + UPDATE условия фильтра - пропуски записей
 User::where("notified", false)->chunk(1000, function ($users) {
@@ -369,7 +402,7 @@ $users = User::with(["posts" => fn($q) => $q->latest()->limit(5)])->get();',
             [
                 'category' => 'Laravel',
                 'question' => 'Как работают Laravel-транзакции с deadlock и как их повторять?',
-                'answer' => 'DB::transaction($callback, $attempts) ловит QueryException и при коде deadlock (например, 1213 в MySQL) повторяет до $attempts раз. Без указания attempts он бросает первое же исключение. Для распределённых сценариев nested-транзакции используют SAVEPOINT - DB::transaction внутри другой создаёт точку отката, а не новую транзакцию. afterCommit-хуки сработают только после внешнего коммита.',
+                'answer' => 'DB::transaction($callback, $attempts) повторяет колбэк только при ОШИБКАХ КОНКУРЕНЦИИ - не при любом QueryException. Решение принимает Illuminate\Database\ConcurrencyErrorDetector::causedByConcurrencyError(): срабатывает на SQLSTATE 40001 (serialization failure - канон Postgres) и на текстовые маркеры в сообщении драйвера: "Deadlock found when trying to get lock" (MySQL ER_LOCK_DEADLOCK = 1213), "deadlock detected" (Postgres), "Lock wait timeout exceeded" (MySQL ER_LOCK_WAIT_TIMEOUT = 1205), "database is locked" (SQLite), и аналогичные в MariaDB Galera/WSREP. Что НЕ повторяется и сразу пробросится наверх: violation уникального индекса (23000/23505), foreign key (23503), check constraint, синтаксические ошибки, lost connection - на это есть отдельная ветка causedByLostConnection() и она ретраит уже по другому правилу (только если транзакция не начата). Без указания attempts (default 1) DB::transaction бросает первое же исключение. Для nested-транзакций Laravel использует SAVEPOINT - DB::transaction внутри другой создаёт точку отката, а не новую транзакцию. afterCommit-хуки сработают только после внешнего коммита.',
                 'code_example' => '<?php
 DB::transaction(function () use ($from, $to, $sum) {
     $from->lockForUpdate()->decrement("balance", $sum);
