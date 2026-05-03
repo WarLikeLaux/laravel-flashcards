@@ -101,7 +101,7 @@ restore_error_handler();
 // Локально для одного блока
 $prev = set_error_handler(fn() => throw new ErrorException("..."));
 try {
-    json_decode($maybe, flags: JSON_THROW_ON_ERROR); // в 8+ JSON_THROW_ON_ERROR уже есть
+    json_decode($maybe, flags: JSON_THROW_ON_ERROR); // флаг доступен с PHP 7.3 - кидает JsonException
 } finally {
     set_error_handler($prev);
 }

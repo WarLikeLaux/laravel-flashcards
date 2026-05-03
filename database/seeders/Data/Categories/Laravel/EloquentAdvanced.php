@@ -406,7 +406,7 @@ collect($emails)->chunk(1000)->each(function ($chunk) {
             [
                 'category' => 'Laravel',
                 'question' => 'Как настроить read/write connections в Laravel и что делает опция sticky?',
-                'answer' => 'В config/database.php у соединения можно указать массив "read" и "write" с отдельными хостами: SELECT-запросы пойдут на read-реплику, INSERT/UPDATE/DELETE - на write (master). Это горизонтально масштабирует чтение в типичном "много чтений / мало записей" приложении. Подводный камень: репликация асинхронна, лаг между master и реплики - десятки миллисекунд (а под нагрузкой - секунды). Классический баг: создаём пользователя POST /users → сразу редирект на GET /users/{id} → юзер не найден, потому что INSERT ушёл в master, а SELECT - в реплику, куда строка ещё не доехала. Решение - опция "sticky" => true в конфиге соединения: ОПЦИОНАЛЬНО (по умолчанию false, нужно включить руками), и если включено, то после ЛЮБОЙ операции записи в текущем request cycle все последующие SELECT того же запроса автоматически идут на write-соединение. Это даёт "read your own writes" гарантию ценой снятия части нагрузки с реплик после первого write. Если sticky выключен и нужно прочитать только что записанные данные - явно использовать DB::connection("mysql")->select() с указанием write, либо $model->refresh() с опцией useWritePdo() (Model::on("mysql")->useWritePdo()->find($id)).',
+                'answer' => 'В config/database.php у соединения можно указать массив "read" и "write" с отдельными хостами: SELECT-запросы пойдут на read-реплику, INSERT/UPDATE/DELETE - на write (master). Это горизонтально масштабирует чтение в типичном "много чтений / мало записей" приложении. Подводный камень: репликация асинхронна, лаг между master и реплики - десятки миллисекунд (а под нагрузкой - секунды), поэтому SELECT сразу после INSERT может вернуть старые данные или 404. Опция "sticky" => true в конфиге соединения (по умолчанию false): после ЛЮБОЙ операции записи в текущем PHP-процессе все последующие SELECT идут на write-соединение. Реализация - флаг $recordsModified на инстансе Connection (Illuminate\Database\Connection), который проверяется в getPdoForSelect(). КРИТИЧЕСКОЕ ОГРАНИЧЕНИЕ: sticky работает ТОЛЬКО в рамках одного PHP-запроса, потому что флаг живёт на инстансе Connection. Классический PRG-паттерн (POST /users → 302 → GET /users/{id}) sticky НЕ спасёт: следующий GET - это новый HTTP-запрос, новый bootstrap, новый Connection с recordsModified=false. Чтобы выжить с PRG: 1) на стороне Laravel - пробрасывать данные через session flash или сразу рендерить ответ без редиректа; 2) на инфраструктурном уровне - sticky-сессии на балансировщике (привязка пользователя к ноде), причинно-следственные токены (LSN/GTID-токен в куке/заголовке, по которому реплика дожидается нужной позиции), синхронная репликация для критичных таблиц. В Octane/долгоживущих воркерах sticky опасен в обратную сторону: флаг между запросами обнуляется через ConnectionsHaveBeenForgottenEvent / app reset, но если кастомизировал жизненный цикл - проверь, что recordsModified сбрасывается. Разово принудить master: Model::on("mysql")->useWritePdo()->find($id) или DB::connection()->getPdo() с явным write-pdo.',
                 'code_example' => '<?php
 // config/database.php
 "connections" => [
@@ -421,13 +421,19 @@ collect($emails)->chunk(1000)->each(function ($chunk) {
     ],
 ],
 
-// Без sticky - багопасный паттерн
-$user = User::create($data);          // → master
-return redirect("/users/{$user->id}"); // → реплика, может вернуть 404
+// Что РЕАЛЬНО фиксит sticky - чтение в том же запросе
+$user = User::create($data);
+$fresh = User::find($user->id); // → write (sticky сработал)
 
-// С sticky - SELECT после write идёт в master весь оставшийся request
+// Что sticky НЕ фиксит - PRG-редирект (новый HTTP-запрос)
+return redirect("/users/{$user->id}"); // следующий GET - новый bootstrap,
+                                       // recordsModified=false, SELECT идёт
+                                       // на реплику, может вернуть 404
 
-// Принудительно использовать master разово
+// Workaround для PRG: рендер без редиректа или session flash
+return view("users.show", ["user" => $user]);
+
+// Принудительно использовать master разово (любой запрос)
 $fresh = User::on("mysql")->useWritePdo()->find($user->id);',
                 'code_language' => 'php',
                 'difficulty' => 4,
