@@ -196,6 +196,62 @@ class LegacyCrmAcl {
                 'difficulty' => 3,
                 'topic' => 'system_design.architecture',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Saga: чем отличается choreography (хореография) от orchestration (оркестрация)?',
+                'answer' => 'Saga - паттерн распределённых транзакций, где локальные транзакции каждого сервиса связываются цепочкой, и при сбое одного шага запускаются compensating actions (обратные операции). Реализуется в двух стилях. Choreography (хореография): нет центрального координатора - каждый сервис слушает события и решает сам, что делать дальше. Order создан → publish OrderCreated → Payment слушает, списывает деньги → publish PaymentCharged → Inventory слушает, резервирует товар → publish InventoryReserved → ... При сбое сервис publish-ит компенсирующее событие (например, PaymentFailed), на которое подписаны все, кому нужно откатить свою часть. Плюсы: слабая связность, нет SPOF, легко добавлять новых участников. Минусы: бизнес-процесс "размазан" по сервисам - трудно понять текущее состояние саги; сложно отслеживать и дебажить (нужен distributed tracing); легко получить циклы и неявные зависимости. Orchestration (оркестрация): есть центральный сервис-оркестратор (saga orchestrator/manager), который явно вызывает шаги и обрабатывает их результаты, ведя state machine саги. Order Saga: оркестратор шлёт ChargePaymentCommand → ждёт ответа → шлёт ReserveInventoryCommand → ... При сбое оркестратор шлёт компенсации в обратном порядке. Плюсы: бизнес-логика в одном месте, явная state machine, проще debug. Минусы: оркестратор - SPOF и узкое место по нагрузке; сильная связь сервисов с оркестратором. Когда что: choreography - простые саги из 2-3 шагов, событийная архитектура. Orchestration - сложные саги (5+ шагов, ветвления, retry-логика), регулируемые домены. Реализации: Temporal, Camunda, AWS Step Functions для orchestration; Kafka/RabbitMQ + outbox для choreography.',
+                'code_example' => '<?php
+// CHOREOGRAPHY (события)
+class PaymentService
+{
+    public function onOrderCreated(OrderCreated $event): void
+    {
+        try {
+            $this->chargeCard($event->orderId, $event->amount);
+            event(new PaymentCharged($event->orderId));
+        } catch (Throwable $e) {
+            event(new PaymentFailed($event->orderId, $e->getMessage()));
+        }
+    }
+}
+
+class InventoryService
+{
+    public function onPaymentCharged(PaymentCharged $event): void { /* резерв */ }
+    public function onPaymentFailed(PaymentFailed $event): void { /* ничего не делать */ }
+    public function onInventoryReservationFailed(...$e): void { /* публикуем для отката Payment */ }
+}
+
+// ORCHESTRATION (центральный координатор)
+class OrderSagaOrchestrator
+{
+    public function execute(int $orderId): void
+    {
+        $state = SagaState::start($orderId);
+        try {
+            $state->mark("payment_started");
+            $this->payments->charge($orderId);  // sync или через ответное событие
+
+            $state->mark("inventory_started");
+            $this->inventory->reserve($orderId);
+
+            $state->mark("shipping_started");
+            $this->shipping->schedule($orderId);
+
+            $state->complete();
+        } catch (SagaStepFailed $e) {
+            // компенсации в обратном порядке по state
+            foreach (array_reverse($state->completedSteps()) as $step) {
+                $this->compensate($step, $orderId);
+            }
+            $state->fail($e);
+        }
+    }
+}',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.architecture',
+            ],
         ];
     }
 }

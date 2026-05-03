@@ -842,7 +842,7 @@ add(5, 10);    // 15 - OK
             [
                 'category' => 'PHP',
                 'question' => 'Чем отличается isset, empty и is_null?',
-                'answer' => 'isset($x) - true если переменная существует и не null. empty($x) - true если переменной нет или её значение falsy ("", 0, "0", null, [], false). is_null($x) - true только если значение === null (но даст Warning если переменной нет вообще). Для проверки массива: isset($arr["key"]) НЕ даст true если значение null - тогда нужен array_key_exists.',
+                'answer' => 'isset($x) - true если переменная существует и не null; не выдаёт Warning, даже если переменной нет. empty($x) - true если переменной нет или её значение falsy ("", 0, "0", null, [], false); тоже не выдаёт Warning. is_null($x) и сравнение $x === null - проверяют именно равенство null, но ОБА выдадут Warning: Undefined variable, если переменная не объявлена (PHP 8+). То есть для безопасной проверки "существует ли вообще" - только isset/empty; is_null и === null применяй когда уверен, что переменная объявлена. Для массивов: isset($arr["key"]) даёт false если значение null - чтобы отличить "нет ключа" от "ключ есть, но null", используй array_key_exists.',
                 'code_example' => '<?php
 $a = null;
 $b = "";

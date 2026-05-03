@@ -149,6 +149,30 @@ SQL,
                 'difficulty' => 4,
                 'topic' => 'database.indexes',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Попадают ли NULL-значения в B-tree индекс? Можно ли искать по IS NULL через индекс?',
+                'answer' => 'Зависит от СУБД - это классический cross-vendor вопрос на собеседованиях. PostgreSQL: NULL-ы попадают в B-tree индекс, и WHERE col IS NULL может использовать index scan. По умолчанию NULL сортируются последними (NULLS LAST для ASC, NULLS FIRST для DESC) - можно переопределить в CREATE INDEX. MySQL/InnoDB: тоже хранит NULL-ы в B-tree, и IS NULL может использовать индекс (MySQL умеет это с давних версий, оптимизатор показывает type=ref в EXPLAIN). Oracle: классически НЕ хранит NULL в обычном B-tree (если все колонки индекса NULL - запись не попадает в индекс), поэтому WHERE col IS NULL делает full scan. Обходной путь - функциональный индекс CREATE INDEX ... ON t(NVL(col, "x")) или составной индекс с константой (col, 1). SQL Server: хранит NULL в B-tree, IS NULL индексируется. Практический совет: для частых IS NULL / IS NOT NULL фильтров в PG используй partial index WHERE col IS NULL - индекс будет компактнее.',
+                'code_example' => 'SELECT version(); -- PostgreSQL
+
+CREATE INDEX idx_email ON users(email);
+EXPLAIN SELECT * FROM users WHERE email IS NULL;
+-- Index Scan using idx_email - PG умеет
+
+-- Partial index только для NULL - очень компактный
+CREATE INDEX idx_users_no_email ON users(id) WHERE email IS NULL;
+
+-- Управление позицией NULL в сортировке
+CREATE INDEX idx_users_created
+  ON users(created_at DESC NULLS LAST);
+
+-- В Oracle для WHERE col IS NULL по индексу нужен трюк:
+-- CREATE INDEX idx_t ON t(col, 1);
+-- WHERE col IS NULL AND 1=1; -- индекс используется',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.indexes',
+            ],
         ];
     }
 }

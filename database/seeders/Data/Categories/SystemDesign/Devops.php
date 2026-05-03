@@ -134,6 +134,52 @@ return view("checkout.v1");',
                 'difficulty' => 3,
                 'topic' => 'system_design.devops',
             ],
+            [
+                'category' => 'System Design',
+                'question' => 'Как обеспечить Graceful Shutdown для PHP-воркеров и Kubernetes-подов?',
+                'answer' => 'Graceful shutdown - корректное завершение процесса при получении сигнала остановки: дождаться завершения текущей работы, не принимать новую, освободить ресурсы. Без него при деплое теряются in-flight Job-ы, обрываются HTTP-запросы, остаётся "висящий" state в БД. Механика в Linux: процесс получает SIGTERM (15) - нужно успеть завершиться за grace period; если не успел, через timeout приходит SIGKILL (9), который не перехватывается. Kubernetes по умолчанию даёт terminationGracePeriodSeconds=30 после SIGTERM, потом SIGKILL. Что делать в PHP: 1) В CLI-воркере - pcntl_async_signals(true) + pcntl_signal(SIGTERM, ...) + установить флаг "shouldStop", который проверяется в основном цикле между задачами. 2) Для очередей - Laravel queue:work уже умеет сам ловить SIGTERM/SIGINT и завершается после текущего Job; нужно только настроить правильный --timeout и terminationGracePeriodSeconds > timeout. 3) Для HTTP - php-fpm graceful через kill -USR1/USR2 (master форкает новых воркеров, старые дорабатывают текущие запросы). В Kubernetes: 4) preStop hook на pod (sleep 10) - даёт время сервис-меш / load balancer убрать pod из endpoints до начала остановки, чтобы новые запросы не шли. 5) Readiness probe возвращает unready при получении SIGTERM. 6) terminationGracePeriodSeconds = max время вашей задачи + buffer. Для Octane/Swoole/RoadRunner - встроенная поддержка graceful reload. Подводный камень: в Kubernetes SIGTERM приходит ДО того, как pod удалён из endpoints - всегда нужен preStop sleep либо корректная readiness-проверка.',
+                'code_example' => '<?php
+// 1. Свой воркер с обработкой SIGTERM
+pcntl_async_signals(true);
+$shouldStop = false;
+pcntl_signal(SIGTERM, function () use (&$shouldStop) { $shouldStop = true; });
+pcntl_signal(SIGINT,  function () use (&$shouldStop) { $shouldStop = true; });
+
+while (! $shouldStop) {
+    $job = $this->queue->pop();
+    if ($job) {
+        $job->handle(); // дорабатываем до конца, не прерываем
+    } else {
+        sleep(1);
+    }
+}
+$this->cleanup(); // close DB, flush metrics
+
+// 2. Laravel queue:work уже умеет; supervisor:
+// stopsignal=TERM
+// stopwaitsecs=120
+
+// 3. Kubernetes Deployment
+// spec:
+//   template:
+//     spec:
+//       terminationGracePeriodSeconds: 120
+//       containers:
+//       - name: worker
+//         lifecycle:
+//           preStop:
+//             exec:
+//               command: ["sh","-c","sleep 10"] # дать LB убрать из endpoints
+//         readinessProbe:
+//           httpGet: { path: /healthz, port: 8000 }
+//         # SIGTERM -> воркер дожимает, SIGKILL через 120s
+
+// 4. php-fpm graceful reload
+// kill -USR2 $(cat /var/run/php-fpm.pid) # перезагрузка с дописыванием текущих',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'system_design.devops',
+            ],
         ];
     }
 }

@@ -232,6 +232,46 @@ SQL,
                 'difficulty' => 4,
                 'topic' => 'database.transactions_acid',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Чем отличаются пессимистичные (FOR UPDATE) и оптимистичные блокировки? Когда какую применять?',
+                'answer' => 'Пессимистичная блокировка - "сначала запрещаю, потом меняю": SELECT ... FOR UPDATE ставит row-level X-lock на строки, и другие транзакции, попытавшиеся их прочитать с FOR UPDATE/UPDATE/DELETE, будут ждать (или упадут с lock timeout). Гарантирует отсутствие конфликта, но снижает concurrency и может привести к взаимоблокировкам (deadlock). Оптимистичная блокировка - "сначала меняю, на коммите проверяю": в таблицу добавляется поле version (или updated_at), при UPDATE сравнивается с прочитанной ранее версией; если кто-то успел изменить - 0 affected rows и приложение перезапускает операцию или показывает пользователю конфликт. Никаких блокировок в БД, высокий throughput, но при частых конфликтах теряется работа. Когда что использовать: PESSIMISTIC - короткие критические секции с высокой вероятностью конфликта (списание со счёта, резерв билета, инкремент счётчика); требуется явная транзакция, держать lock как можно меньше. OPTIMISTIC - длительные пользовательские операции (редактирование документа в форме, "вы открыли страницу 10 минут назад"), низкая вероятность одновременного изменения, нельзя удерживать транзакцию через сетевой round-trip. В Laravel: pessimistic - lockForUpdate() / sharedLock(); optimistic - вручную через колонку version и WHERE version = ? в UPDATE.',
+                'code_example' => '<?php
+// PESSIMISTIC - Laravel
+DB::transaction(function () use ($userId, $amount) {
+    $account = Account::where("user_id", $userId)
+        ->lockForUpdate() // SELECT ... FOR UPDATE
+        ->firstOrFail();
+
+    if ($account->balance < $amount) {
+        throw new InsufficientFundsException;
+    }
+
+    $account->decrement("balance", $amount);
+});
+
+// OPTIMISTIC - вручную через version
+$post = Post::find($id); // version = 5
+$post->title = "new";
+
+$updated = Post::where("id", $id)
+    ->where("version", $post->version)
+    ->update([
+        "title" => $post->title,
+        "version" => $post->version + 1,
+    ]);
+
+if ($updated === 0) {
+    throw new ConcurrentModificationException("Кто-то уже изменил пост");
+}
+
+// Альтернатива OPTIMISTIC - атомарное условие в SQL
+DB::update("UPDATE accounts SET balance = balance - ?
+            WHERE user_id = ? AND balance >= ?", [$amount, $userId, $amount]);',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'database.transactions_acid',
+            ],
         ];
     }
 }

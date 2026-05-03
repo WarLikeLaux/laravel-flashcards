@@ -46,6 +46,33 @@ Post::preventLazyLoading();',
             ],
             [
                 'category' => 'Laravel',
+                'question' => 'Что делает Model::shouldBeStrict() и зачем он нужен?',
+                'answer' => 'shouldBeStrict() (Laravel 9.3+) - один вызов, включающий три защитных режима для Eloquent: 1) preventLazyLoading() - бросает LazyLoadingViolationException при попытке lazy load связи (ловит N+1 на этапе разработки). 2) preventSilentlyDiscardingAttributes() - бросает MassAssignmentException, если в fill() / create() передан атрибут, не указанный в $fillable, вместо тихого игнорирования. 3) preventAccessingMissingAttributes() - бросает MissingAttributeException при обращении к полю, которого нет в загруженной модели (например, забыли select() нужное поле). Стандартная практика: вызывать в AppServiceProvider::boot() с условием !isProduction(), чтобы не уронить прод неожиданным исключением.',
+                'code_example' => '<?php
+// AppServiceProvider::boot()
+use Illuminate\\Database\\Eloquent\\Model;
+
+public function boot(): void
+{
+    Model::shouldBeStrict(! $this->app->isProduction());
+}
+
+// эквивалентно:
+Model::preventLazyLoading(! $this->app->isProduction());
+Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+Model::preventAccessingMissingAttributes(! $this->app->isProduction());
+
+// теперь это упадёт с исключением в dev:
+$user = User::select(\'id\')->first();
+$user->email; // MissingAttributeException
+
+User::create([\'name\' => \'Tom\', \'admin\' => true]); // MassAssignmentException если admin не в $fillable',
+                'code_language' => 'php',
+                'difficulty' => 3,
+                'topic' => 'laravel.eloquent_advanced',
+            ],
+            [
+                'category' => 'Laravel',
                 'question' => 'Что такое withCount?',
                 'answer' => 'withCount - подсчитывает количество связанных записей одним SQL-запросом без их загрузки. Возвращает атрибут вида posts_count. Также есть withSum, withAvg, withMin, withMax.',
                 'code_example' => '$users = User::withCount(\'posts\', \'comments\')->get();

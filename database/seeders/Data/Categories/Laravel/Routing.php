@@ -65,7 +65,7 @@ return redirect()->route(\'profile\');',
             [
                 'category' => 'Laravel',
                 'question' => 'Что делает route caching и какие у него ограничения?',
-                'answer' => 'php artisan route:cache компилирует все роуты в один кешируемый PHP-файл, что ускоряет работу приложения. Ограничение: нельзя использовать closure-роуты (анонимные функции), только массив [Controller::class, "method"]. Используется в продакшене.',
+                'answer' => 'php artisan route:cache компилирует все роуты в один сериализованный PHP-файл, что ускоряет загрузку маршрутов в продакшене (особенно полезно при сотнях роутов). Исторически (до Laravel 8) closure-роуты ломали кеш, потому что Closure нельзя было сериализовать - сейчас Laravel умеет их кешировать через Opis\Closure / нативные механизмы, и официальная документация это разрешает. Реальные ограничения сегодня: после route:cache изменения в файлах routes/* не подхватываются до следующего route:clear/route:cache, поэтому это команда исключительно для деплоя. Для api - artisan route:cache; для повседневной разработки - не использовать.',
                 'code_example' => 'php artisan route:cache
 php artisan route:clear
 php artisan route:list',
@@ -93,17 +93,18 @@ Route::bind(\'user\', fn($value) => User::where(\'username\', $value)->firstOrFa
             ],
             [
                 'category' => 'Laravel',
-                'question' => 'Какие ограничения у route:cache и почему оно ломается с Closure-роутами?',
-                'answer' => 'route:cache сериализует все маршруты в php-массив. Closure (Route::get("/", function() {...})) сериализовать нельзя - кеш падает с ошибкой. Поэтому в проде используют только controller@method или [Controller::class, "method"]. Также config:cache замораживает env(), который после кеша возвращает null вне config-файлов - это типичный source of bugs.',
+                'question' => 'Какие ограничения у route:cache в современном Laravel?',
+                'answer' => 'Распространённое заблуждение: "route:cache не работает с Closure-роутами". Это было верно до Laravel 8 - сейчас Closure прекрасно сериализуются (через laravel/serializable-closure, ранее opis/closure), и команда route:cache их кеширует. Реальные ограничения: 1) После route:cache любые правки в routes/web.php / routes/api.php не подхватываются - нужен route:clear; то есть это команда деплоя, не разработки. 2) config:cache замораживает env() - после кеша env() вне config-файлов возвращает null (классический source of bugs). 3) Если в роуте используется ссылка на класс/метод, недоступный для composer dump-autoload - кеш упадёт. В проде route:cache + config:cache + view:cache + event:cache - стандартная связка, всё это объединяет artisan optimize.',
                 'code_example' => '<?php
-// плохо: Closure
+// оба варианта корректны и кешируются
 Route::get("/", function () { return "hi"; });
-
-// хорошо
 Route::get("/", [HomeController::class, "index"]);
 
-// деплой
-php artisan route:cache',
+// деплой:
+// composer install --no-dev --optimize-autoloader
+// php artisan optimize  // = config:cache + route:cache + view:cache + event:cache
+
+// разработка: НЕ запускайте route:cache локально - правки не подхватятся',
                 'code_language' => 'php',
                 'difficulty' => 3,
                 'topic' => 'laravel.routing',

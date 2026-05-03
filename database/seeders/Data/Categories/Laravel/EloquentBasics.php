@@ -235,6 +235,32 @@ User::upsert(
                 'difficulty' => 4,
                 'topic' => 'laravel.eloquent_basics',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Чем ULID лучше UUID v4 в качестве первичного ключа?',
+                'answer' => 'UUID v4 - случайные 128 бит. При вставке в B-tree индекс новые ключи попадают в произвольные места дерева - страдает кеш страниц БД, индекс фрагментируется, растёт число page splits и тормозят INSERT при высокой нагрузке. ULID (Universally Unique Lexicographically Sortable Identifier) - те же 128 бит, но первые 48 бит - timestamp в миллисекундах, последние 80 - случайные. Из-за timestamp-префикса ULID лексикографически (и численно) сортируется по времени создания, поэтому новые записи идут в "правый край" B-tree, как обычный auto-increment - индекс не фрагментируется, INSERT-производительность близка к bigint PK. Бонусы: можно сортировать по PK вместо created_at, текстовое представление компактнее (26 символов против 36). Минус: примерное время создания записи утекает через ID, поэтому не использовать в публичных URL для чувствительных ресурсов. В Laravel есть HasUlids trait + helper $table->ulid() в миграциях. Альтернатива - UUID v7 (тот же подход с timestamp-префиксом, стандартизирован в RFC 9562) - в Laravel 11+ доступен через Str::uuid7().',
+                'code_example' => '<?php
+use Illuminate\\Database\\Eloquent\\Concerns\\HasUlids;
+
+class Order extends Model
+{
+    use HasUlids; // вместо HasUuids
+
+    // primary key теперь string CHAR(26), сортируемый по времени
+}
+
+// миграция
+Schema::create("orders", function (Blueprint $table) {
+    $table->ulid("id")->primary(); // вместо $table->uuid()->primary()
+    $table->timestamps();
+});
+
+// результат: 01HRZ8K3M9... - первые символы растут со временем
+// → новые ID идут в конец B-tree, без фрагментации',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.eloquent_basics',
+            ],
         ];
     }
 }

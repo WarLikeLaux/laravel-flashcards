@@ -204,6 +204,48 @@ SQL,
                 'difficulty' => 4,
                 'topic' => 'database.postgresql',
             ],
+            [
+                'category' => 'Базы данных',
+                'question' => 'Как искать медленные запросы в PostgreSQL без APM? Что такое pg_stat_statements?',
+                'answer' => 'pg_stat_statements - стандартное расширение PostgreSQL, накапливающее агрегированную статистику по нормализованным запросам (литералы заменяются на $1, $2 - запросы с разными значениями группируются вместе). Для каждого запроса хранит: число вызовов (calls), общее и среднее время (total_exec_time, mean_exec_time), число прочитанных/записанных строк (rows), shared/local block hits/reads (попадания/промахи в shared buffers), стандартное отклонение времени (stddev_exec_time). Это позволяет в проде найти "топ-10 запросов по суммарному времени" - именно они дают основную нагрузку, даже если каждый отдельный запрос быстрый. Включается через shared_preload_libraries = pg_stat_statements в postgresql.conf + CREATE EXTENSION. Сброс статистики - SELECT pg_stat_statements_reset(). Альтернативы и дополнения: 1) auto_explain - логирует EXPLAIN ANALYZE для запросов дольше N мс. 2) pg_stat_activity - текущие выполняющиеся запросы, поиск висящих транзакций (state="idle in transaction" - типичная проблема). 3) log_min_duration_statement в postgresql.conf - пишет в лог запросы дольше порога. Связка pg_stat_statements + auto_explain даёт почти полноценный self-hosted APM для PG.',
+                'code_example' => '-- Установка
+-- 1) postgresql.conf:
+--    shared_preload_libraries = \'pg_stat_statements\'
+--    pg_stat_statements.track = all
+-- 2) рестарт PG
+-- 3) CREATE EXTENSION pg_stat_statements;
+
+-- Топ-10 запросов по суммарному времени
+SELECT
+    query,
+    calls,
+    round(total_exec_time::numeric, 2)         AS total_ms,
+    round(mean_exec_time::numeric, 2)          AS mean_ms,
+    round((total_exec_time/sum(total_exec_time) OVER ())::numeric * 100, 2) AS pct,
+    rows
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 10;
+
+-- Запросы с самым большим разбросом времени (нестабильные)
+SELECT query, calls, mean_exec_time, stddev_exec_time
+FROM pg_stat_statements
+WHERE calls > 100
+ORDER BY stddev_exec_time DESC
+LIMIT 10;
+
+-- Найти зависшие транзакции
+SELECT pid, state, age(now(), xact_start) AS age, query
+FROM pg_stat_activity
+WHERE state = \'idle in transaction\'
+ORDER BY age DESC;
+
+-- Сброс статистики
+SELECT pg_stat_statements_reset();',
+                'code_language' => 'sql',
+                'difficulty' => 4,
+                'topic' => 'database.postgresql',
+            ],
         ];
     }
 }

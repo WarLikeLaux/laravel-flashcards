@@ -158,6 +158,47 @@ DB::transaction(function () use ($order) {
                 'difficulty' => 4,
                 'topic' => 'laravel.queues_jobs',
             ],
+            [
+                'category' => 'Laravel',
+                'question' => 'Что такое Job Middleware и какие встроенные middleware есть в Laravel?',
+                'answer' => 'Job Middleware - это middleware, оборачивающий выполнение Job-а; работает аналогично HTTP middleware, но для очередей. Позволяет вынести cross-cutting логику (rate limiting, дедупликацию, retry-стратегии) из самого Job. Подключается через метод middleware() на классе Job - возвращает массив объектов middleware. Встроенные классы: 1) WithoutOverlapping - блокирует параллельное выполнение Job-ов с одинаковым ключом через cache lock; критично для операций над одной сущностью (например, начисление баланса юзеру), чтобы две копии одного Job не выполнялись одновременно. 2) RateLimited - ограничивает частоту выполнения Job-ов (использует RateLimiter::for()); если лимит исчерпан, Job возвращается обратно в очередь с задержкой. 3) ThrottlesExceptions - если Job падает с исключениями слишком часто (например, внешний API лежит), middleware прекращает попытки на заданное время вместо того, чтобы выжигать retry-budget; полезно для интеграций с нестабильными сервисами. 4) SkipIfBatchCancelled - не выполнять Job, если batch отменён. Кастомные middleware - класс с методом handle($job, $next).',
+                'code_example' => '<?php
+use Illuminate\\Queue\\Middleware\\WithoutOverlapping;
+use Illuminate\\Queue\\Middleware\\RateLimited;
+use Illuminate\\Queue\\Middleware\\ThrottlesExceptions;
+
+class ProcessPayment implements ShouldQueue
+{
+    public function __construct(public int $userId) {}
+
+    public function middleware(): array
+    {
+        return [
+            // одна и та же оплата не выполнится дважды параллельно
+            (new WithoutOverlapping($this->userId))
+                ->expireAfter(180)        // авто-снять lock через 3 мин
+                ->releaseAfter(60),       // вернуть в очередь через 60 сек если занято
+
+            // не более 10 jobs в минуту на стороне внешнего API
+            new RateLimited("payments-api"),
+
+            // если упал 5 раз за минуту - подождать 5 минут
+            (new ThrottlesExceptions(5, 60))->backoff(5),
+        ];
+    }
+
+    public function handle(): void
+    {
+        // ...
+    }
+}
+
+// Регистрация лимитера для RateLimited
+RateLimiter::for("payments-api", fn () => Limit::perMinute(10));',
+                'code_language' => 'php',
+                'difficulty' => 4,
+                'topic' => 'laravel.queues_jobs',
+            ],
         ];
     }
 }
